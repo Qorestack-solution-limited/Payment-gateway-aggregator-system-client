@@ -1,9 +1,11 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import { Navigate, Outlet } from "react-router-dom";
-import { useAuth } from "./context/AuthContext";
+import { Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { useSelector } from "react-redux";
+import { selectIsAuthenticated } from "./store/slices/authSlice";
 import "./index.css";
 import SignUp from "./Pages/SignUp";
 import Login from "./Pages/Login";
+import ForgotPasswordPage from "./Pages/ForgotPasswordPage";
+import ResetPasswordPage from "./Pages/ResetPasswordPage";
 import { LandingPage } from "./Pages/LandingPage";
 import { DashboardPage } from "./Pages/DashboardPage";
 import { AnalyticsPage } from "./Pages/AnalyticsPage";
@@ -11,26 +13,46 @@ import { GatewaysPage } from "./Pages/GatewaysPage";
 import { DeveloperPage } from "./Pages/DeveloperPage";
 import { SettingsPage } from "./Pages/SettingsPage";
 import { TransactionsPage } from "./Pages/TransactionsPage";
-const App = () => {
-  const ProtectedRoutes = () => {
-    const { user } = useAuth();
-    return user ? <Outlet /> : <Navigate to="/login" />;
-  };
+
+// Defined OUTSIDE App so its reference is stable across re-renders.
+// If defined inside App, React sees a new component type every render and
+// unmounts/remounts the entire protected subtree, causing API call cascades.
+function ProtectedRoutes() {
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
+}
+
+// Redirect already-logged-in users away from auth pages
+function GuestRoutes() {
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Outlet />;
+}
+
+export default function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
-      <Route path="/signup" element={<SignUp />} />
-      <Route path="/login" element={<Login />} />
-      {/* Pages Requiring Auth */}
+
+      {/* Auth pages — redirect to dashboard if already logged in */}
+      <Route element={<GuestRoutes />}>
+        <Route path="/login"          element={<Login />} />
+        <Route path="/signup"         element={<SignUp />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password"  element={<ResetPasswordPage />} />
+      </Route>
+
+      {/* Protected pages */}
       <Route element={<ProtectedRoutes />}>
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/analytics" element={<AnalyticsPage />} />
-        <Route path="/gateways" element={<GatewaysPage />} />
-        <Route path="/developer" element={<DeveloperPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/dashboard"    element={<DashboardPage />} />
+        <Route path="/analytics"    element={<AnalyticsPage />} />
+        <Route path="/gateways"     element={<GatewaysPage />} />
+        <Route path="/developer"    element={<DeveloperPage />} />
+        <Route path="/settings"     element={<SettingsPage />} />
         <Route path="/transactions" element={<TransactionsPage />} />
       </Route>
+
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
-};
-export default App;
+}

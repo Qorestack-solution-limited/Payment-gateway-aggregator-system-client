@@ -1,0 +1,17 @@
+{
+  "name": "@payorchestra/sdk",
+  "version": "0.1.0",
+  "description": "Official PayOrchestra JavaScript SDK",
+  "type": "module",
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

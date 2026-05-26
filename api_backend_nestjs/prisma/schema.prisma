@@ -1,0 +1,240 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum Plan {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+enum GatewayProvider {
+  STRIPE
+  PAYPAL
+  ADYEN
+  SQUARE
+  FLUTTERWAVE
+  PAYSTACK
+  OTHER
+}
+
+enum GatewayStatus {
+  ACTIVE
+  INACTIVE
+  WARNING
+}
+
+enum TransactionStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum ApiKeyType {
+  LIVE
+  TEST
+}
+
+enum NotificationType {
+  PAYMENT
+  ALERT
+  INFO
+  SUCCESS
+  WARNING
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id             String         @id @default(cuid())
+  firstName      String
+  lastName       String
+  email          String         @unique
+  password       String
+  role           Role           @default(USER)
+  avatarUrl      String?
+  organizationId String?
+  organization   Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  refreshTokens  RefreshToken[]
+  passwordResets PasswordReset[]
+  notifications  Notification[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([email])
+}
+
+model Organization {
+  id           String        @id @default(cuid())
+  name         String
+  companySize  String?
+  industry     String?
+  website      String?
+  plan         Plan          @default(FREE)
+  users        User[]
+  gateways     Gateway[]
+  transactions Transaction[]
+  apiKeys      ApiKey[]
+  webhooks     Webhook[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Gateway {
+  id             String          @id @default(cuid())
+  name           String
+  provider       GatewayProvider
+  type           String
+  status         GatewayStatus   @default(ACTIVE)
+  publicKey      String?
+  secretKey      String?
+  webhookSecret  String?
+  uptime         Float           @default(100)
+  lastSyncedAt   DateTime?
+  lastSyncStatus String?
+  lastSyncMessage String?
+  organizationId String
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions   Transaction[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([organizationId])
+}
+
+model Transaction {
+  id             String            @id @default(cuid())
+  reference      String            @unique @default(cuid())
+  providerReference String?
+  providerTransactionId String?
+  providerStatus String?
+  providerPayload Json?
+  syncedFromProvider Boolean       @default(false)
+  lastSyncedAt   DateTime?
+  amount         Decimal           @db.Decimal(14, 2)
+  currency       String            @default("NGN")
+  status         TransactionStatus @default(PENDING)
+  customerName   String
+  customerEmail  String
+  description    String?
+  metadata       Json?
+  gatewayId      String
+  gateway        Gateway           @relation(fields: [gatewayId], references: [id])
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([organizationId])
+  @@index([gatewayId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model IdempotencyRequest {
+  id             String   @id @default(cuid())
+  key            String
+  path           String
+  organizationId String
+  requestHash    String
+  response       Json
+  createdAt      DateTime @default(now())
+
+  @@unique([organizationId, key, path])
+  @@index([organizationId])
+  @@index([createdAt])
+}
+
+model ApiKey {
+  id             String     @id @default(cuid())
+  name           String
+  key            String     @unique
+  type           ApiKeyType @default(TEST)
+  isActive       Boolean    @default(true)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  lastUsedAt     DateTime?
+  createdAt      DateTime   @default(now())
+
+  @@index([organizationId])
+  @@index([key])
+}
+
+model Webhook {
+  id             String            @id @default(cuid())
+  url            String
+  events         String[]
+  isActive       Boolean           @default(true)
+  secret         String
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  deliveries     WebhookDelivery[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([organizationId])
+}
+
+model WebhookDelivery {
+  id          String   @id @default(cuid())
+  webhookId   String
+  webhook     Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  event       String
+  statusCode  Int
+  response    String?
+  deliveredAt DateTime @default(now())
+
+  @@index([webhookId])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+model PasswordReset {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([token])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      NotificationType @default(INFO)
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+}
