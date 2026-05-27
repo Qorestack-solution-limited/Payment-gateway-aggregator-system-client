@@ -79,70 +79,121 @@ model User {
 }
 
 model Organization {
-  id           String        @id @default(cuid())
-  name         String
-  companySize  String?
-  industry     String?
-  website      String?
-  plan         Plan          @default(FREE)
-  users        User[]
-  gateways     Gateway[]
-  transactions Transaction[]
-  apiKeys      ApiKey[]
-  webhooks     Webhook[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id                   String               @id @default(cuid())
+  name                 String
+  companySize          String?
+  industry             String?
+  website              String?
+  plan                 Plan                 @default(FREE)
+  users                User[]
+  gateways             Gateway[]
+  transactions         Transaction[]
+  apiKeys              ApiKey[]
+  webhooks             Webhook[]
+  providerWebhookEvents ProviderWebhookEvent[]
+  gatewaySyncRuns      GatewaySyncRun[]
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
 }
 
 model Gateway {
-  id             String          @id @default(cuid())
-  name           String
-  provider       GatewayProvider
-  type           String
-  status         GatewayStatus   @default(ACTIVE)
-  publicKey      String?
-  secretKey      String?
-  webhookSecret  String?
-  uptime         Float           @default(100)
-  lastSyncedAt   DateTime?
-  lastSyncStatus String?
-  lastSyncMessage String?
-  organizationId String
-  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  transactions   Transaction[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  id                   String               @id @default(cuid())
+  name                 String
+  provider             GatewayProvider
+  type                 String
+  status               GatewayStatus        @default(ACTIVE)
+  publicKey            String?
+  secretKey            String?
+  webhookSecret        String?
+  uptime               Float                @default(100)
+  lastSyncedAt         DateTime?
+  lastSyncStatus       String?
+  lastSyncMessage      String?
+  organizationId       String
+  organization         Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  transactions         Transaction[]
+  providerWebhookEvents ProviderWebhookEvent[]
+  syncRuns             GatewaySyncRun[]
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
 
   @@index([organizationId])
 }
 
 model Transaction {
-  id             String            @id @default(cuid())
-  reference      String            @unique @default(cuid())
-  providerReference String?
+  id                    String                @id @default(cuid())
+  reference             String                @unique @default(cuid())
+  providerReference     String?
   providerTransactionId String?
-  providerStatus String?
-  providerPayload Json?
-  syncedFromProvider Boolean       @default(false)
-  lastSyncedAt   DateTime?
-  amount         Decimal           @db.Decimal(14, 2)
-  currency       String            @default("NGN")
-  status         TransactionStatus @default(PENDING)
-  customerName   String
-  customerEmail  String
-  description    String?
-  metadata       Json?
-  gatewayId      String
-  gateway        Gateway           @relation(fields: [gatewayId], references: [id])
-  organizationId String
-  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  providerStatus        String?
+  providerPayload       Json?
+  syncedFromProvider    Boolean               @default(false)
+  lastSyncedAt          DateTime?
+  amount                Decimal               @db.Decimal(14, 2)
+  currency              String                @default("NGN")
+  status                TransactionStatus     @default(PENDING)
+  customerName          String
+  customerEmail         String
+  description           String?
+  metadata              Json?
+  gatewayId             String
+  gateway               Gateway               @relation(fields: [gatewayId], references: [id])
+  organizationId        String
+  organization          Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  providerWebhookEvents ProviderWebhookEvent[]
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
 
   @@index([organizationId])
   @@index([gatewayId])
   @@index([status])
   @@index([createdAt])
+}
+
+model ProviderWebhookEvent {
+  id             String        @id @default(cuid())
+  provider       GatewayProvider
+  event          String
+  status         String
+  signature      String?
+  reference      String?
+  payload        Json?
+  rawBody        String?
+  errorMessage   String?
+  gatewayId      String?
+  gateway        Gateway?      @relation(fields: [gatewayId], references: [id], onDelete: SetNull)
+  transactionId  String?
+  transaction    Transaction?  @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  receivedAt     DateTime      @default(now())
+
+  @@index([gatewayId])
+  @@index([transactionId])
+  @@index([organizationId])
+  @@index([provider])
+  @@index([receivedAt])
+}
+
+model GatewaySyncRun {
+  id             String       @id @default(cuid())
+  status         String
+  imported       Int          @default(0)
+  updated        Int          @default(0)
+  totalFetched   Int          @default(0)
+  message        String?
+  fromDate       String?
+  toDate         String?
+  gatewayId      String
+  gateway        Gateway      @relation(fields: [gatewayId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  startedAt      DateTime     @default(now())
+  completedAt    DateTime?
+
+  @@index([gatewayId])
+  @@index([organizationId])
+  @@index([startedAt])
 }
 
 model IdempotencyRequest {

@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { notificationsApi } from "../../API/apiClient";
+import { logoutSuccess } from "./authSlice";
 
 export const fetchNotifications = createAsyncThunk(
   "notifications/fetch",
@@ -59,9 +60,21 @@ const notificationsSlice = createSlice({
     clearNotificationsError(state) {
       state.error = null;
     },
+    resetNotificationsState(state) {
+      state.items = [];
+      state.unreadCount = 0;
+      state.loading = false;
+      state.error = null;
+    },
   },
   extraReducers: (builder) => {
     builder
+      .addCase(logoutSuccess, (state) => {
+        state.items = [];
+        state.unreadCount = 0;
+        state.loading = false;
+        state.error = null;
+      })
       .addCase(fetchNotifications.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -111,7 +124,7 @@ const notificationsSlice = createSlice({
 });
 
 export default notificationsSlice.reducer;
-export const { clearNotificationsError } = notificationsSlice.actions;
+export const { clearNotificationsError, resetNotificationsState } = notificationsSlice.actions;
 
 export const selectNotifications = (state) => state.notifications.items;
 export const selectUnreadCount = (state) => state.notifications.unreadCount;

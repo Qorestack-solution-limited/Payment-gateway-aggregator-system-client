@@ -16,11 +16,13 @@ const client_1 = require("@prisma/client");
 const crypto_1 = require("crypto");
 const webhooks_service_1 = require("../webhooks/webhooks.service");
 const payment_gateway_registry_1 = require("../payments/payment-gateway.registry");
+const gateway_credentials_service_1 = require("../payments/gateway-credentials.service");
 let TransactionsService = class TransactionsService {
-    constructor(prisma, webhooks, gateways) {
+    constructor(prisma, webhooks, gateways, credentials) {
         this.prisma = prisma;
         this.webhooks = webhooks;
         this.gateways = gateways;
+        this.credentials = credentials;
     }
     hashRequest(orgId, dto) {
         return (0, crypto_1.createHash)('sha256').update(JSON.stringify({ orgId, dto })).digest('hex');
@@ -112,8 +114,9 @@ let TransactionsService = class TransactionsService {
         if (!gateway)
             throw new common_1.NotFoundException('Gateway not found');
         const reference = dto.reference || cryptoRandomReference();
-        const adapter = this.gateways.forGateway(gateway);
-        const initialized = await adapter.initializePayment(gateway, {
+        const hydratedGateway = this.credentials.hydrateGateway(gateway);
+        const adapter = this.gateways.forGateway(hydratedGateway);
+        const initialized = await adapter.initializePayment(hydratedGateway, {
             amount: dto.amount,
             currency: dto.currency,
             customerName: dto.customerName,
@@ -168,8 +171,9 @@ let TransactionsService = class TransactionsService {
     }
     async verify(id, orgId) {
         const tx = await this.findOne(id, orgId);
-        const adapter = this.gateways.forGateway(tx.gateway);
-        const verified = await adapter.verifyPayment(tx.gateway, tx.providerReference || tx.reference);
+        const hydratedGateway = this.credentials.hydrateGateway(tx.gateway);
+        const adapter = this.gateways.forGateway(hydratedGateway);
+        const verified = await adapter.verifyPayment(hydratedGateway, tx.providerReference || tx.reference);
         const statusMap = {
             success: client_1.TransactionStatus.SUCCESS,
             failed: client_1.TransactionStatus.FAILED,
@@ -217,7 +221,8 @@ exports.TransactionsService = TransactionsService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         webhooks_service_1.WebhooksService,
-        payment_gateway_registry_1.PaymentGatewayRegistry])
+        payment_gateway_registry_1.PaymentGatewayRegistry,
+        gateway_credentials_service_1.GatewayCredentialsService])
 ], TransactionsService);
 function cryptoRandomReference() {
     return `txn_${Math.random().toString(36).slice(2, 12)}${Date.now().toString(36)}`;

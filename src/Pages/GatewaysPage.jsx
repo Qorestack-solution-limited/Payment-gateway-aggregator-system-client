@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { Link } from "react-router-dom";
 import {
   RefreshCwIcon,
   PlusIcon,
@@ -9,13 +10,20 @@ import {
   PowerIcon,
   XIcon,
   Loader2Icon,
+  CopyIcon,
+  CheckIcon,
+  HistoryIcon,
 } from "lucide-react";
 import { AppLayout } from "../Components/AppLayout";
 import { LoadingSkeleton } from "../Components/LoadingSkeleton";
 import {
   clearGatewayFormError,
   createGateway,
+  clearGatewayWebhookEvents,
+  clearGatewaySyncRuns,
   fetchGateways,
+  fetchGatewayWebhookEvents,
+  fetchGatewaySyncRuns,
   selectGatewayDeletingId,
   selectGatewayFormError,
   selectGatewaySaving,
@@ -25,6 +33,14 @@ import {
   selectGateways,
   selectGatewaysError,
   selectGatewaysLoading,
+  selectGatewayWebhookEvents,
+  selectGatewayWebhookEventsError,
+  selectGatewayWebhookEventsGatewayId,
+  selectGatewayWebhookEventsLoading,
+  selectGatewaySyncRuns,
+  selectGatewaySyncRunsError,
+  selectGatewaySyncRunsGatewayId,
+  selectGatewaySyncRunsLoading,
   syncGatewayTransactions,
   toggleGateway,
   validateGateway,
@@ -57,6 +73,14 @@ const EMPTY_SYNC_FORM = {
   to: "",
 };
 
+const INBOUND_WEBHOOK_URL = `${
+  (import.meta.env.VITE_API_URL || "http://localhost:3000/api/v1").replace(/\/$/, "")
+}/payments/webhooks/paystack`;
+
+const FLUTTERWAVE_WEBHOOK_URL = `${
+  (import.meta.env.VITE_API_URL || "http://localhost:3000/api/v1").replace(/\/$/, "")
+}/payments/webhooks/flutterwave`;
+
 export function GatewaysPage() {
   const dispatch = useDispatch();
   const gateways = useSelector(selectGateways);
@@ -68,11 +92,22 @@ export function GatewaysPage() {
   const deletingId = useSelector(selectGatewayDeletingId);
   const validatingId = useSelector(selectGatewayValidatingId);
   const syncingId = useSelector(selectGatewaySyncingId);
+  const webhookEvents = useSelector(selectGatewayWebhookEvents);
+  const webhookEventsLoading = useSelector(selectGatewayWebhookEventsLoading);
+  const webhookEventsError = useSelector(selectGatewayWebhookEventsError);
+  const webhookEventsGatewayId = useSelector(selectGatewayWebhookEventsGatewayId);
+  const syncRuns = useSelector(selectGatewaySyncRuns);
+  const syncRunsLoading = useSelector(selectGatewaySyncRunsLoading);
+  const syncRunsError = useSelector(selectGatewaySyncRunsError);
+  const syncRunsGatewayId = useSelector(selectGatewaySyncRunsGatewayId);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [localFormError, setLocalFormError] = useState("");
   const [syncTarget, setSyncTarget] = useState(null);
   const [syncForm, setSyncForm] = useState(EMPTY_SYNC_FORM);
+  const [copiedWebhookFor, setCopiedWebhookFor] = useState("");
+  const [eventsTarget, setEventsTarget] = useState(null);
+  const [syncRunsTarget, setSyncRunsTarget] = useState(null);
 
   useEffect(() => {
     dispatch(fetchGateways());
@@ -109,6 +144,24 @@ export function GatewaysPage() {
       setSyncTarget(null);
       setSyncForm(EMPTY_SYNC_FORM);
     }
+  };
+
+  const handleCopyWebhookUrl = async (gatewayId, url) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedWebhookFor(gatewayId);
+      window.setTimeout(() => setCopiedWebhookFor(""), 1800);
+    } catch {}
+  };
+
+  const openEventsModal = (gateway) => {
+    setEventsTarget(gateway);
+    dispatch(fetchGatewayWebhookEvents(gateway.id));
+  };
+
+  const openSyncRunsModal = (gateway) => {
+    setSyncRunsTarget(gateway);
+    dispatch(fetchGatewaySyncRuns(gateway.id));
   };
 
   return (
@@ -158,7 +211,9 @@ export function GatewaysPage() {
                         {gateway.name[0].toUpperCase()}
                       </div>
                       <div>
-                        <h3 className="font-bold text-[#1A1A1A] text-lg">{gateway.name}</h3>
+                        <Link to={`/gateways/${gateway.id}`} className="font-bold text-[#1A1A1A] text-lg hover:text-[#22C55E] transition-colors">
+                          {gateway.name}
+                        </Link>
                         <p className="text-xs text-gray-500 font-medium capitalize">{gateway.provider}</p>
                       </div>
                     </div>
@@ -181,6 +236,20 @@ export function GatewaysPage() {
                         className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-40"
                       >
                         {syncingId === gateway.id ? <Loader2Icon className="w-4 h-4 animate-spin" /> : <RefreshCwIcon className="w-4 h-4" />}
+                      </button>
+                      <button
+                        onClick={() => openSyncRunsModal(gateway)}
+                        title="View sync history"
+                        className="p-1.5 text-gray-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-lg transition-colors"
+                      >
+                        <RefreshCwIcon className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => openEventsModal(gateway)}
+                        title="View webhook events"
+                        className="p-1.5 text-gray-400 hover:text-violet-600 hover:bg-violet-50 rounded-lg transition-colors"
+                      >
+                        <HistoryIcon className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => dispatch(toggleGateway(gateway.id))}
@@ -221,6 +290,40 @@ export function GatewaysPage() {
                       <p className="text-xs text-gray-400 font-medium">
                         Last sync: {gateway.lastSyncedAt ? new Date(gateway.lastSyncedAt).toLocaleString() : "Never"}
                       </p>
+                      {gateway.provider === "PAYSTACK" && (
+                        <div className="mt-2 rounded-xl border border-gray-100 bg-gray-50 p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-bold">Inbound webhook</p>
+                              <p className="text-xs text-gray-600 font-mono break-all">{INBOUND_WEBHOOK_URL}</p>
+                            </div>
+                            <button
+                              onClick={() => handleCopyWebhookUrl(gateway.id, INBOUND_WEBHOOK_URL)}
+                              className="shrink-0 p-2 text-gray-400 hover:text-[#22C55E] hover:bg-green-50 rounded-lg transition-colors"
+                              title="Copy webhook URL"
+                            >
+                              {copiedWebhookFor === gateway.id ? <CheckIcon className="w-4 h-4 text-green-600" /> : <CopyIcon className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                      {gateway.provider === "FLUTTERWAVE" && (
+                        <div className="mt-2 rounded-xl border border-gray-100 bg-gray-50 p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-[11px] uppercase tracking-wide text-gray-400 font-bold">Inbound webhook</p>
+                              <p className="text-xs text-gray-600 font-mono break-all">{FLUTTERWAVE_WEBHOOK_URL}</p>
+                            </div>
+                            <button
+                              onClick={() => handleCopyWebhookUrl(gateway.id, FLUTTERWAVE_WEBHOOK_URL)}
+                              className="shrink-0 p-2 text-gray-400 hover:text-[#22C55E] hover:bg-green-50 rounded-lg transition-colors"
+                              title="Copy webhook URL"
+                            >
+                              {copiedWebhookFor === gateway.id ? <CheckIcon className="w-4 h-4 text-green-600" /> : <CopyIcon className="w-4 h-4" />}
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       {gateway.validationMessage && (
                         <p className="text-xs text-blue-600 font-medium mt-1">{gateway.validationMessage}</p>
                       )}
@@ -409,6 +512,175 @@ export function GatewaysPage() {
               >
                 {syncingId === syncTarget.id ? <Loader2Icon className="w-4 h-4 animate-spin" /> : <RefreshCwIcon className="w-4 h-4" />}
                 Sync Now
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {eventsTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <div>
+                <h3 className="text-lg font-bold text-[#1A1A1A]">Webhook Events</h3>
+                <p className="text-sm text-gray-500 font-medium">Recent inbound provider events for {eventsTarget.name}.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setEventsTarget(null);
+                  dispatch(clearGatewayWebhookEvents());
+                }}
+                className="p-2 text-gray-400 hover:text-[#1A1A1A] rounded-xl hover:bg-gray-100 transition-colors"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto">
+              {webhookEventsLoading && webhookEventsGatewayId === eventsTarget.id ? (
+                <div className="space-y-4">
+                  {[1, 2, 3, 4].map((index) => <LoadingSkeleton key={index} className="h-20" />)}
+                </div>
+              ) : webhookEventsError ? (
+                <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm font-bold text-red-600">
+                  {webhookEventsError}
+                </div>
+              ) : webhookEvents.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-12 font-medium">No inbound webhook events yet.</p>
+              ) : (
+                <div className="space-y-4">
+                  {webhookEvents.map((event) => (
+                    <div key={event.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className="text-sm font-bold text-[#1A1A1A]">{event.event}</span>
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                            event.status === "PROCESSED"
+                              ? "bg-green-100 text-green-700"
+                              : event.status === "IGNORED"
+                                ? "bg-amber-100 text-amber-700"
+                                : "bg-red-100 text-red-700"
+                          }`}>
+                            {event.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400 font-medium">{new Date(event.receivedAt).toLocaleString()}</p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                        <p><span className="text-gray-500 font-medium">Reference:</span> <span className="font-mono text-[#1A1A1A]">{event.reference ?? "-"}</span></p>
+                        <p><span className="text-gray-500 font-medium">Transaction:</span> <span className="font-mono text-[#1A1A1A]">{event.transaction?.reference ?? "-"}</span></p>
+                      </div>
+                      {event.errorMessage && (
+                        <p className="mt-3 text-sm font-medium text-red-600">{event.errorMessage}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 p-6 border-t border-gray-100">
+              <button
+                onClick={() => dispatch(fetchGatewayWebhookEvents(eventsTarget.id))}
+                className="flex items-center gap-2 px-5 py-2.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                <RefreshCwIcon className="w-4 h-4" />
+                Refresh
+              </button>
+              <button
+                onClick={() => {
+                  setEventsTarget(null);
+                  dispatch(clearGatewayWebhookEvents());
+                }}
+                className="px-5 py-2.5 bg-[#1A1A1A] text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {syncRunsTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <div>
+                <h3 className="text-lg font-bold text-[#1A1A1A]">Sync History</h3>
+                <p className="text-sm text-gray-500 font-medium">Recent transaction sync runs for {syncRunsTarget.name}.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setSyncRunsTarget(null);
+                  dispatch(clearGatewaySyncRuns());
+                }}
+                className="p-2 text-gray-400 hover:text-[#1A1A1A] rounded-xl hover:bg-gray-100 transition-colors"
+              >
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto">
+              {syncRunsLoading && syncRunsGatewayId === syncRunsTarget.id ? (
+                <div className="space-y-4">
+                  {[1, 2, 3, 4].map((index) => <LoadingSkeleton key={index} className="h-20" />)}
+                </div>
+              ) : syncRunsError ? (
+                <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm font-bold text-red-600">
+                  {syncRunsError}
+                </div>
+              ) : syncRuns.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-12 font-medium">No sync runs recorded yet.</p>
+              ) : (
+                <div className="space-y-4">
+                  {syncRuns.map((run) => (
+                    <div key={run.id} className="rounded-2xl border border-gray-100 bg-gray-50 p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                            run.status === "SUCCESS" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                          }`}>
+                            {run.status}
+                          </span>
+                          <span className="text-sm font-bold text-[#1A1A1A]">
+                            Imported {run.imported}, updated {run.updated}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400 font-medium">{new Date(run.startedAt).toLocaleString()}</p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                        <p><span className="text-gray-500 font-medium">Fetched:</span> <span className="font-bold text-[#1A1A1A]">{run.totalFetched}</span></p>
+                        <p><span className="text-gray-500 font-medium">From:</span> <span className="font-medium text-[#1A1A1A]">{run.fromDate || "-"}</span></p>
+                        <p><span className="text-gray-500 font-medium">To:</span> <span className="font-medium text-[#1A1A1A]">{run.toDate || "-"}</span></p>
+                      </div>
+                      {run.message && (
+                        <p className={`mt-3 text-sm font-medium ${run.status === "SUCCESS" ? "text-green-700" : "text-red-600"}`}>
+                          {run.message}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 p-6 border-t border-gray-100">
+              <button
+                onClick={() => dispatch(fetchGatewaySyncRuns(syncRunsTarget.id))}
+                className="flex items-center gap-2 px-5 py-2.5 border border-gray-200 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                <RefreshCwIcon className="w-4 h-4" />
+                Refresh
+              </button>
+              <button
+                onClick={() => {
+                  setSyncRunsTarget(null);
+                  dispatch(clearGatewaySyncRuns());
+                }}
+                className="px-5 py-2.5 bg-[#1A1A1A] text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>

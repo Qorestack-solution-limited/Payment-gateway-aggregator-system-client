@@ -50,10 +50,10 @@ export declare class DashboardController {
             currency: string;
             customerName: string;
             customerEmail: string;
+            gatewayId: string;
             providerPayload: import("@prisma/client/runtime/library").JsonValue | null;
             syncedFromProvider: boolean;
             metadata: import("@prisma/client/runtime/library").JsonValue | null;
-            gatewayId: string;
         })[];
     }>;
     revenueChart(orgId: string): Promise<{

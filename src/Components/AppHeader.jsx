@@ -12,6 +12,7 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
   removeNotification,
+  resetNotificationsState,
   selectNotifications,
   selectUnreadCount,
   selectNotifsLoading,
@@ -66,10 +67,14 @@ export function AppHeader() {
   const fullName = user ? `${user.firstName} ${user.lastName}` : "User";
 
   useEffect(() => {
+    if (!user?.id) {
+      dispatch(resetNotificationsState());
+      return undefined;
+    }
     dispatch(fetchNotifications());
     const interval = setInterval(() => dispatch(fetchNotifications()), 60_000);
     return () => clearInterval(interval);
-  }, [dispatch]);
+  }, [dispatch, user?.id]);
 
   useEffect(() => {
     if (!open) return;

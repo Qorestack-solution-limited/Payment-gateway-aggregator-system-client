@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateGatewayDto, SyncGatewayTransactionsDto, UpdateGatewayDto } from './dto/gateway.dto';
 import { GatewayStatus, TransactionStatus } from '@prisma/client';
 import { PaymentGatewayRegistry } from '../payments/payment-gateway.registry';
+import { GatewayCredentialsService } from '../payments/gateway-credentials.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 
 @Injectable()
@@ -10,6 +11,7 @@ export class GatewaysService {
   constructor(
     private prisma: PrismaService,
     private registry: PaymentGatewayRegistry,
+    private credentials: GatewayCredentialsService,
     private webhooks: WebhooksService,
   ) {}
 
@@ -47,12 +49,60 @@ export class GatewaysService {
   }
 
   findOne(id: string, orgId: string) {
-    return this.assertOwnership(id, orgId).then((gateway) => this.serializeGateway(gateway));
+    return this.prisma.gateway.findFirst({
+      where: { id, organizationId: orgId },
+      include: {
+        _count: {
+          select: {
+            transactions: true,
+            providerWebhookEvents: true,
+            syncRuns: true,
+          },
+        },
+      },
+    }).then((gateway) => {
+      if (!gateway) throw new NotFoundException('Gateway not found');
+      return {
+        ...this.serializeGateway(gateway),
+        transactionCount: gateway._count.transactions,
+        webhookEventCount: gateway._count.providerWebhookEvents,
+        syncRunCount: gateway._count.syncRuns,
+      };
+    });
+  }
+
+  async getWebhookEvents(id: string, orgId: string) {
+    await this.assertOwnership(id, orgId);
+    return this.prisma.providerWebhookEvent.findMany({
+      where: { gatewayId: id, organizationId: orgId },
+      orderBy: { receivedAt: 'desc' },
+      take: 25,
+      include: {
+        transaction: {
+          select: {
+            id: true,
+            reference: true,
+            status: true,
+            amount: true,
+            currency: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getSyncRuns(id: string, orgId: string) {
+    await this.assertOwnership(id, orgId);
+    return this.prisma.gatewaySyncRun.findMany({
+      where: { gatewayId: id, organizationId: orgId },
+      orderBy: { startedAt: 'desc' },
+      take: 25,
+    });
   }
 
   create(orgId: string, dto: CreateGatewayDto) {
     return this.prisma.gateway.create({
-      data: { ...dto, organizationId: orgId },
+      data: { ...this.credentials.prepareCreateData(dto), organizationId: orgId },
     }).then((gateway) => ({
       ...this.serializeGateway(gateway),
       transactionCount: 0,
@@ -60,14 +110,15 @@ export class GatewaysService {
   }
 
   async validate(id: string, orgId: string) {
-    const gateway = await this.assertOwnership(id, orgId);
+    const gateway = this.credentials.hydrateGateway(await this.assertOwnership(id, orgId));
     const adapter = this.registry.forGateway(gateway);
     return adapter.validateConfiguration(gateway);
   }
 
   async syncTransactions(id: string, orgId: string, dto: SyncGatewayTransactionsDto) {
-    const gateway = await this.assertOwnership(id, orgId);
+    const gateway = this.credentials.hydrateGateway(await this.assertOwnership(id, orgId));
     const adapter = this.registry.forGateway(gateway);
+    const startedAt = new Date();
 
     try {
       const providerTransactions = await adapter.fetchTransactions(gateway, dto);
@@ -149,6 +200,22 @@ export class GatewaysService {
         },
       });
 
+      await this.prisma.gatewaySyncRun.create({
+        data: {
+          gatewayId: gateway.id,
+          organizationId: orgId,
+          status: 'SUCCESS',
+          imported,
+          updated,
+          totalFetched: providerTransactions.length,
+          message: `Imported ${imported}, updated ${updated}`,
+          fromDate: dto.from,
+          toDate: dto.to,
+          startedAt,
+          completedAt: new Date(),
+        },
+      });
+
       await this.webhooks.dispatchEvent(orgId, 'gateway.sync.completed', {
         gatewayId: gateway.id,
         gatewayName: gateway.name,
@@ -172,13 +239,30 @@ export class GatewaysService {
           lastSyncMessage: error instanceof Error ? error.message : 'Sync failed',
         },
       });
+      await this.prisma.gatewaySyncRun.create({
+        data: {
+          gatewayId: gateway.id,
+          organizationId: orgId,
+          status: 'FAILED',
+          imported: 0,
+          updated: 0,
+          totalFetched: 0,
+          message: error instanceof Error ? error.message : 'Sync failed',
+          fromDate: dto.from,
+          toDate: dto.to,
+          startedAt,
+          completedAt: new Date(),
+        },
+      });
       throw error;
     }
   }
 
   async update(id: string, orgId: string, dto: UpdateGatewayDto) {
     await this.assertOwnership(id, orgId);
-    return this.prisma.gateway.update({ where: { id }, data: dto }).then((gateway) => this.serializeGateway(gateway));
+    return this.prisma.gateway
+      .update({ where: { id }, data: this.credentials.prepareUpdateData(dto) })
+      .then((gateway) => this.serializeGateway(gateway));
   }
 
   async toggleStatus(id: string, orgId: string) {

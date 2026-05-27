@@ -39,7 +39,7 @@ exports.NotificationsController = NotificationsController;
 __decorate([
     (0, common_1.Get)(),
     (0, swagger_1.ApiOperation)({ summary: 'Get all notifications for current user' }),
-    __param(0, (0, get_user_decorator_1.GetUser)('sub')),
+    __param(0, (0, get_user_decorator_1.GetUser)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
@@ -48,7 +48,7 @@ __decorate([
     (0, common_1.Patch)(':id/read'),
     (0, swagger_1.ApiOperation)({ summary: 'Mark a notification as read' }),
     __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, get_user_decorator_1.GetUser)('sub')),
+    __param(1, (0, get_user_decorator_1.GetUser)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", void 0)
@@ -56,7 +56,7 @@ __decorate([
 __decorate([
     (0, common_1.Patch)('read-all'),
     (0, swagger_1.ApiOperation)({ summary: 'Mark all notifications as read' }),
-    __param(0, (0, get_user_decorator_1.GetUser)('sub')),
+    __param(0, (0, get_user_decorator_1.GetUser)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
@@ -65,7 +65,7 @@ __decorate([
     (0, common_1.Delete)(':id'),
     (0, swagger_1.ApiOperation)({ summary: 'Delete a notification' }),
     __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, get_user_decorator_1.GetUser)('sub')),
+    __param(1, (0, get_user_decorator_1.GetUser)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", void 0)

@@ -26,10 +26,10 @@ export declare class TransactionsController {
             currency: string;
             customerName: string;
             customerEmail: string;
+            gatewayId: string;
             providerPayload: import("@prisma/client/runtime/library").JsonValue | null;
             syncedFromProvider: boolean;
             metadata: import("@prisma/client/runtime/library").JsonValue | null;
-            gatewayId: string;
         })[];
         meta: {
             total: number;
@@ -72,10 +72,10 @@ export declare class TransactionsController {
         currency: string;
         customerName: string;
         customerEmail: string;
+        gatewayId: string;
         providerPayload: import("@prisma/client/runtime/library").JsonValue | null;
         syncedFromProvider: boolean;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
-        gatewayId: string;
     }>;
     findOne(id: string, orgId: string): Promise<{
         gateway: {
@@ -111,10 +111,10 @@ export declare class TransactionsController {
         currency: string;
         customerName: string;
         customerEmail: string;
+        gatewayId: string;
         providerPayload: import("@prisma/client/runtime/library").JsonValue | null;
         syncedFromProvider: boolean;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
-        gatewayId: string;
     }>;
     create(orgId: string, dto: CreateTransactionDto, idempotencyKey?: string): Promise<string | number | boolean | import("@prisma/client/runtime/library").JsonObject | import("@prisma/client/runtime/library").JsonArray | {
         checkoutUrl: string;
@@ -151,10 +151,10 @@ export declare class TransactionsController {
         currency: string;
         customerName: string;
         customerEmail: string;
+        gatewayId: string;
         providerPayload: import("@prisma/client/runtime/library").JsonValue | null;
         syncedFromProvider: boolean;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
-        gatewayId: string;
     }>;
     verify(id: string, orgId: string): Promise<{
         gateway: {
@@ -190,10 +190,10 @@ export declare class TransactionsController {
         currency: string;
         customerName: string;
         customerEmail: string;
+        gatewayId: string;
         providerPayload: import("@prisma/client/runtime/library").JsonValue | null;
         syncedFromProvider: boolean;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
-        gatewayId: string;
     }>;
     updateStatus(id: string, orgId: string, status: TransactionStatus): Promise<{
         id: string;
@@ -211,9 +211,9 @@ export declare class TransactionsController {
         currency: string;
         customerName: string;
         customerEmail: string;
+        gatewayId: string;
         providerPayload: import("@prisma/client/runtime/library").JsonValue | null;
         syncedFromProvider: boolean;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
-        gatewayId: string;
     }>;
 }

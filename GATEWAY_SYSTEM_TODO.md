@@ -34,7 +34,7 @@ It is primarily:
 - [x] Allow user to add multiple payment gateways
 - [ ] Allow user to store gateway-specific credentials securely
 - [x] Allow user to enable and disable a configured gateway
-- [ ] Allow user to edit and update gateway credentials
+- [x] Allow user to edit and update gateway credentials
 - [x] Validate credentials when requested
 - [ ] Show connection health and status for each gateway
 - [ ] Add provider-specific fields where needed
@@ -58,6 +58,9 @@ It is primarily:
 - [x] Add Paystack payment verification
 - [ ] Add Paystack refund support if feasible
 - [x] Normalize Paystack responses into internal transaction shape
+- [x] Add Flutterwave adapter
+- [x] Add Stripe adapter
+- [x] Add PayPal adapter
 
 ### 4. Selected Gateway Execution
 
@@ -96,10 +99,13 @@ It is primarily:
 
 ### 8. Gateway-Specific Webhook Ingestion
 
-- [ ] Add inbound webhook endpoints for each provider
-- [ ] Verify provider webhook signatures
-- [ ] Update internal transactions from webhook events
-- [ ] Store webhook event history
+- [x] Add inbound Paystack webhook endpoint
+- [x] Verify Paystack webhook signatures
+- [x] Update internal transactions from Paystack webhook events
+- [ ] Add inbound webhook endpoints for each additional provider
+- [ ] Verify webhook signatures for each additional provider
+- [ ] Update internal transactions from webhook events for each additional provider
+- [x] Store Paystack webhook event history
 - [ ] Reconcile webhook updates with pulled transaction syncs
 
 ### 9. Unified Dashboard and Reporting
@@ -116,17 +122,18 @@ It is primarily:
 
 - [x] Add shimmer-style loading skeletons
 - [x] Add Sync Now action on each gateway
-- [ ] Add gateway detail page
+- [x] Add gateway detail page
 - [ ] Show last pulled transactions per gateway
 - [x] Show provider reference ids in transaction detail
 - [x] Show raw provider payload in transaction detail
-- [ ] Add logs and history view for sync runs
+- [x] Add logs and history view for inbound webhook events
+- [x] Add logs and history view for sync runs
 - [x] Add create payment flow with exact gateway selection
 - [x] Add verify-with-gateway action from transaction detail
 
 ### 11. Security
 
-- [ ] Encrypt gateway secret keys at rest
+- [x] Encrypt gateway secret keys at rest
 - [x] Never expose gateway secret keys back to the frontend
 - [ ] Redact sensitive values in logs
 - [ ] Add audit trail for gateway config changes

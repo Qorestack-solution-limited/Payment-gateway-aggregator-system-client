@@ -6,7 +6,9 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, {
+    rawBody: true,
+  });
 
   app.setGlobalPrefix('api/v1');
 
@@ -36,6 +38,5 @@ async function bootstrap() {
   SwaggerModule.setup('api/docs', app, document);
 
   await app.listen(process.env.PORT ?? 3000);
-  console.log(`PayOrchestra API running on port ${process.env.PORT ?? 3000}`);
 }
 bootstrap();

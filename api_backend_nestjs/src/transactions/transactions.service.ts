@@ -5,6 +5,7 @@ import { GatewayStatus, TransactionStatus } from '@prisma/client';
 import { createHash } from 'crypto';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { PaymentGatewayRegistry } from '../payments/payment-gateway.registry';
+import { GatewayCredentialsService } from '../payments/gateway-credentials.service';
 
 @Injectable()
 export class TransactionsService {
@@ -12,6 +13,7 @@ export class TransactionsService {
     private prisma: PrismaService,
     private webhooks: WebhooksService,
     private gateways: PaymentGatewayRegistry,
+    private credentials: GatewayCredentialsService,
   ) {}
 
   private hashRequest(orgId: string, dto: CreateTransactionDto) {
@@ -107,8 +109,9 @@ export class TransactionsService {
     if (!gateway) throw new NotFoundException('Gateway not found');
 
     const reference = dto.reference || cryptoRandomReference();
-    const adapter = this.gateways.forGateway(gateway);
-    const initialized = await adapter.initializePayment(gateway, {
+    const hydratedGateway = this.credentials.hydrateGateway(gateway);
+    const adapter = this.gateways.forGateway(hydratedGateway);
+    const initialized = await adapter.initializePayment(hydratedGateway, {
       amount: dto.amount,
       currency: dto.currency,
       customerName: dto.customerName,
@@ -168,8 +171,9 @@ export class TransactionsService {
 
   async verify(id: string, orgId: string) {
     const tx = await this.findOne(id, orgId);
-    const adapter = this.gateways.forGateway(tx.gateway);
-    const verified = await adapter.verifyPayment(tx.gateway, tx.providerReference || tx.reference);
+    const hydratedGateway = this.credentials.hydrateGateway(tx.gateway);
+    const adapter = this.gateways.forGateway(hydratedGateway);
+    const verified = await adapter.verifyPayment(hydratedGateway, tx.providerReference || tx.reference);
 
     const statusMap: Record<string, TransactionStatus> = {
       success: TransactionStatus.SUCCESS,

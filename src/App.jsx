@@ -10,19 +10,16 @@ import { LandingPage } from "./Pages/LandingPage";
 import { DashboardPage } from "./Pages/DashboardPage";
 import { AnalyticsPage } from "./Pages/AnalyticsPage";
 import { GatewaysPage } from "./Pages/GatewaysPage";
+import { GatewayDetailPage } from "./Pages/GatewayDetailPage";
 import { DeveloperPage } from "./Pages/DeveloperPage";
 import { SettingsPage } from "./Pages/SettingsPage";
 import { TransactionsPage } from "./Pages/TransactionsPage";
 
-// Defined OUTSIDE App so its reference is stable across re-renders.
-// If defined inside App, React sees a new component type every render and
-// unmounts/remounts the entire protected subtree, causing API call cascades.
 function ProtectedRoutes() {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
 }
 
-// Redirect already-logged-in users away from auth pages
 function GuestRoutes() {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Outlet />;
@@ -46,6 +43,7 @@ export default function App() {
         <Route path="/dashboard"    element={<DashboardPage />} />
         <Route path="/analytics"    element={<AnalyticsPage />} />
         <Route path="/gateways"     element={<GatewaysPage />} />
+        <Route path="/gateways/:id" element={<GatewayDetailPage />} />
         <Route path="/developer"    element={<DeveloperPage />} />
         <Route path="/settings"     element={<SettingsPage />} />
         <Route path="/transactions" element={<TransactionsPage />} />

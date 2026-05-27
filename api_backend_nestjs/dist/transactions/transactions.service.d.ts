@@ -3,11 +3,13 @@ import { CreateTransactionDto, QueryTransactionDto } from './dto/transaction.dto
 import { TransactionStatus } from '@prisma/client';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { PaymentGatewayRegistry } from '../payments/payment-gateway.registry';
+import { GatewayCredentialsService } from '../payments/gateway-credentials.service';
 export declare class TransactionsService {
     private prisma;
     private webhooks;
     private gateways;
-    constructor(prisma: PrismaService, webhooks: WebhooksService, gateways: PaymentGatewayRegistry);
+    private credentials;
+    constructor(prisma: PrismaService, webhooks: WebhooksService, gateways: PaymentGatewayRegistry, credentials: GatewayCredentialsService);
     private hashRequest;
     findAll(orgId: string, query: QueryTransactionDto): Promise<{
         data: ({
@@ -31,10 +33,10 @@ export declare class TransactionsService {
             currency: string;
             customerName: string;
             customerEmail: string;
+            gatewayId: string;
             providerPayload: import("@prisma/client/runtime/library").JsonValue | null;
             syncedFromProvider: boolean;
             metadata: import("@prisma/client/runtime/library").JsonValue | null;
-            gatewayId: string;
         })[];
         meta: {
             total: number;
@@ -77,10 +79,10 @@ export declare class TransactionsService {
         currency: string;
         customerName: string;
         customerEmail: string;
+        gatewayId: string;
         providerPayload: import("@prisma/client/runtime/library").JsonValue | null;
         syncedFromProvider: boolean;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
-        gatewayId: string;
     }>;
     findByReference(reference: string, orgId: string): Promise<{
         gateway: {
@@ -116,10 +118,10 @@ export declare class TransactionsService {
         currency: string;
         customerName: string;
         customerEmail: string;
+        gatewayId: string;
         providerPayload: import("@prisma/client/runtime/library").JsonValue | null;
         syncedFromProvider: boolean;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
-        gatewayId: string;
     }>;
     create(orgId: string, dto: CreateTransactionDto, idempotencyKey?: string): Promise<string | number | boolean | import("@prisma/client/runtime/library").JsonObject | import("@prisma/client/runtime/library").JsonArray | {
         checkoutUrl: string;
@@ -156,10 +158,10 @@ export declare class TransactionsService {
         currency: string;
         customerName: string;
         customerEmail: string;
+        gatewayId: string;
         providerPayload: import("@prisma/client/runtime/library").JsonValue | null;
         syncedFromProvider: boolean;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
-        gatewayId: string;
     }>;
     verify(id: string, orgId: string): Promise<{
         gateway: {
@@ -195,10 +197,10 @@ export declare class TransactionsService {
         currency: string;
         customerName: string;
         customerEmail: string;
+        gatewayId: string;
         providerPayload: import("@prisma/client/runtime/library").JsonValue | null;
         syncedFromProvider: boolean;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
-        gatewayId: string;
     }>;
     updateStatus(id: string, orgId: string, status: TransactionStatus): Promise<{
         id: string;
@@ -216,9 +218,9 @@ export declare class TransactionsService {
         currency: string;
         customerName: string;
         customerEmail: string;
+        gatewayId: string;
         providerPayload: import("@prisma/client/runtime/library").JsonValue | null;
         syncedFromProvider: boolean;
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
-        gatewayId: string;
     }>;
 }

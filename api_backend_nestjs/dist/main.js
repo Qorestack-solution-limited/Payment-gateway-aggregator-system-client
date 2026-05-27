@@ -7,7 +7,9 @@ const app_module_1 = require("./app.module");
 const http_exception_filter_1 = require("./common/filters/http-exception.filter");
 const response_interceptor_1 = require("./common/interceptors/response.interceptor");
 async function bootstrap() {
-    const app = await core_1.NestFactory.create(app_module_1.AppModule);
+    const app = await core_1.NestFactory.create(app_module_1.AppModule, {
+        rawBody: true,
+    });
     app.setGlobalPrefix('api/v1');
     app.enableCors({
         origin: process.env.CLIENT_URL || 'http://localhost:5173',
@@ -29,7 +31,6 @@ async function bootstrap() {
     const document = swagger_1.SwaggerModule.createDocument(app, config);
     swagger_1.SwaggerModule.setup('api/docs', app, document);
     await app.listen(process.env.PORT ?? 3000);
-    console.log(`PayOrchestra API running on port ${process.env.PORT ?? 3000}`);
 }
 bootstrap();
 //# sourceMappingURL=main.js.map

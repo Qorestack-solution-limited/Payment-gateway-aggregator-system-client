@@ -18,6 +18,18 @@ export class GatewaysController {
     return this.gateways.findAll(orgId);
   }
 
+  @Get(':id/webhook-events')
+  @ApiOperation({ summary: 'List recent inbound provider webhook events for a gateway' })
+  getWebhookEvents(@Param('id') id: string, @GetUser('organizationId') orgId: string) {
+    return this.gateways.getWebhookEvents(id, orgId);
+  }
+
+  @Get(':id/sync-runs')
+  @ApiOperation({ summary: 'List recent transaction sync runs for a gateway' })
+  getSyncRuns(@Param('id') id: string, @GetUser('organizationId') orgId: string) {
+    return this.gateways.getSyncRuns(id, orgId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string, @GetUser('organizationId') orgId: string) {
     return this.gateways.findOne(id, orgId);

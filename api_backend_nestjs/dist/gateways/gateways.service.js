@@ -14,11 +14,13 @@ const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
 const client_1 = require("@prisma/client");
 const payment_gateway_registry_1 = require("../payments/payment-gateway.registry");
+const gateway_credentials_service_1 = require("../payments/gateway-credentials.service");
 const webhooks_service_1 = require("../webhooks/webhooks.service");
 let GatewaysService = class GatewaysService {
-    constructor(prisma, registry, webhooks) {
+    constructor(prisma, registry, credentials, webhooks) {
         this.prisma = prisma;
         this.registry = registry;
+        this.credentials = credentials;
         this.webhooks = webhooks;
     }
     async assertOwnership(gatewayId, orgId) {
@@ -52,24 +54,72 @@ let GatewaysService = class GatewaysService {
         })));
     }
     findOne(id, orgId) {
-        return this.assertOwnership(id, orgId).then((gateway) => this.serializeGateway(gateway));
+        return this.prisma.gateway.findFirst({
+            where: { id, organizationId: orgId },
+            include: {
+                _count: {
+                    select: {
+                        transactions: true,
+                        providerWebhookEvents: true,
+                        syncRuns: true,
+                    },
+                },
+            },
+        }).then((gateway) => {
+            if (!gateway)
+                throw new common_1.NotFoundException('Gateway not found');
+            return {
+                ...this.serializeGateway(gateway),
+                transactionCount: gateway._count.transactions,
+                webhookEventCount: gateway._count.providerWebhookEvents,
+                syncRunCount: gateway._count.syncRuns,
+            };
+        });
+    }
+    async getWebhookEvents(id, orgId) {
+        await this.assertOwnership(id, orgId);
+        return this.prisma.providerWebhookEvent.findMany({
+            where: { gatewayId: id, organizationId: orgId },
+            orderBy: { receivedAt: 'desc' },
+            take: 25,
+            include: {
+                transaction: {
+                    select: {
+                        id: true,
+                        reference: true,
+                        status: true,
+                        amount: true,
+                        currency: true,
+                    },
+                },
+            },
+        });
+    }
+    async getSyncRuns(id, orgId) {
+        await this.assertOwnership(id, orgId);
+        return this.prisma.gatewaySyncRun.findMany({
+            where: { gatewayId: id, organizationId: orgId },
+            orderBy: { startedAt: 'desc' },
+            take: 25,
+        });
     }
     create(orgId, dto) {
         return this.prisma.gateway.create({
-            data: { ...dto, organizationId: orgId },
+            data: { ...this.credentials.prepareCreateData(dto), organizationId: orgId },
         }).then((gateway) => ({
             ...this.serializeGateway(gateway),
             transactionCount: 0,
         }));
     }
     async validate(id, orgId) {
-        const gateway = await this.assertOwnership(id, orgId);
+        const gateway = this.credentials.hydrateGateway(await this.assertOwnership(id, orgId));
         const adapter = this.registry.forGateway(gateway);
         return adapter.validateConfiguration(gateway);
     }
     async syncTransactions(id, orgId, dto) {
-        const gateway = await this.assertOwnership(id, orgId);
+        const gateway = this.credentials.hydrateGateway(await this.assertOwnership(id, orgId));
         const adapter = this.registry.forGateway(gateway);
+        const startedAt = new Date();
         try {
             const providerTransactions = await adapter.fetchTransactions(gateway, dto);
             let imported = 0;
@@ -145,6 +195,21 @@ let GatewaysService = class GatewaysService {
                     lastSyncMessage: `Imported ${imported}, updated ${updated}`,
                 },
             });
+            await this.prisma.gatewaySyncRun.create({
+                data: {
+                    gatewayId: gateway.id,
+                    organizationId: orgId,
+                    status: 'SUCCESS',
+                    imported,
+                    updated,
+                    totalFetched: providerTransactions.length,
+                    message: `Imported ${imported}, updated ${updated}`,
+                    fromDate: dto.from,
+                    toDate: dto.to,
+                    startedAt,
+                    completedAt: new Date(),
+                },
+            });
             await this.webhooks.dispatchEvent(orgId, 'gateway.sync.completed', {
                 gatewayId: gateway.id,
                 gatewayName: gateway.name,
@@ -168,12 +233,29 @@ let GatewaysService = class GatewaysService {
                     lastSyncMessage: error instanceof Error ? error.message : 'Sync failed',
                 },
             });
+            await this.prisma.gatewaySyncRun.create({
+                data: {
+                    gatewayId: gateway.id,
+                    organizationId: orgId,
+                    status: 'FAILED',
+                    imported: 0,
+                    updated: 0,
+                    totalFetched: 0,
+                    message: error instanceof Error ? error.message : 'Sync failed',
+                    fromDate: dto.from,
+                    toDate: dto.to,
+                    startedAt,
+                    completedAt: new Date(),
+                },
+            });
             throw error;
         }
     }
     async update(id, orgId, dto) {
         await this.assertOwnership(id, orgId);
-        return this.prisma.gateway.update({ where: { id }, data: dto }).then((gateway) => this.serializeGateway(gateway));
+        return this.prisma.gateway
+            .update({ where: { id }, data: this.credentials.prepareUpdateData(dto) })
+            .then((gateway) => this.serializeGateway(gateway));
     }
     async toggleStatus(id, orgId) {
         const gw = await this.assertOwnership(id, orgId);
@@ -193,6 +275,7 @@ exports.GatewaysService = GatewaysService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         payment_gateway_registry_1.PaymentGatewayRegistry,
+        gateway_credentials_service_1.GatewayCredentialsService,
         webhooks_service_1.WebhooksService])
 ], GatewaysService);
 //# sourceMappingURL=gateways.service.js.map
