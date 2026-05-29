@@ -25,6 +25,12 @@ let TransactionsController = class TransactionsController {
     constructor(txs) {
         this.txs = txs;
     }
+    async exportCsv(orgId, query, res) {
+        const csv = await this.txs.exportCsv(orgId, query);
+        res.set('Content-Type', 'text/csv; charset=utf-8');
+        res.set('Content-Disposition', `attachment; filename="transactions-${Date.now()}.csv"`);
+        res.send(csv);
+    }
     findAll(orgId, query) {
         return this.txs.findAll(orgId, query);
     }
@@ -45,6 +51,17 @@ let TransactionsController = class TransactionsController {
     }
 };
 exports.TransactionsController = TransactionsController;
+__decorate([
+    (0, common_1.Get)('export'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiOperation)({ summary: 'Export transactions as CSV' }),
+    __param(0, (0, get_user_decorator_1.GetUser)('organizationId')),
+    __param(1, (0, common_1.Query)()),
+    __param(2, (0, common_1.Res)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, transaction_dto_1.QueryTransactionDto, Object]),
+    __metadata("design:returntype", Promise)
+], TransactionsController.prototype, "exportCsv", null);
 __decorate([
     (0, common_1.Get)(),
     (0, common_1.UseGuards)(api_key_auth_guard_1.ApiKeyAuthGuard),

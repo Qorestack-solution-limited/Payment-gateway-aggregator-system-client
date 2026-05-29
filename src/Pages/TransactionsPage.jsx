@@ -15,6 +15,7 @@ import {
   CopyIcon,
   CheckIcon,
   PlusIcon,
+  DownloadIcon,
 } from "lucide-react";
 import { AppLayout } from "../Components/AppLayout";
 import { LoadingSkeleton } from "../Components/LoadingSkeleton";
@@ -46,6 +47,7 @@ import {
   verifyTransaction,
 } from "../store/slices/transactionsSlice";
 import { fetchGateways, selectGateways } from "../store/slices/gatewaysSlice";
+import { transactionsApi } from "../API/apiClient";
 
 const fmt = (n) =>
   `NGN ${Number(n).toLocaleString("en-NG", {
@@ -254,15 +256,15 @@ function TransactionDrawer({ onClose }) {
     <>
       <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
 
-      <div className="fixed right-0 top-0 h-full w-full max-w-lg bg-white z-50 shadow-2xl flex flex-col">
-        <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100">
+      <div className="fixed right-0 top-0 h-full w-full sm:max-w-lg bg-white z-50 shadow-2xl flex flex-col">
+        <div className="flex items-center justify-between px-5 sm:px-8 py-5 sm:py-6 border-b border-gray-100">
           <h3 className="text-lg font-bold text-[#1A1A1A]">Transaction Details</h3>
           <button onClick={onClose} className="p-2 text-gray-400 hover:text-[#1A1A1A] hover:bg-gray-100 rounded-xl transition-colors">
             <XIcon className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-8 py-6">
+        <div className="flex-1 overflow-y-auto px-5 sm:px-8 py-5 sm:py-6">
           {loading ? (
             <div className="space-y-5">
               {[1, 2, 3, 4, 5].map((index) => <LoadingSkeleton key={index} className="h-14" />)}
@@ -416,7 +418,7 @@ function TransactionDrawer({ onClose }) {
           ) : null}
         </div>
 
-        <div className="px-8 py-5 border-t border-gray-100">
+        <div className="px-5 sm:px-8 py-4 sm:py-5 border-t border-gray-100">
           <button
             onClick={onClose}
             className="w-full flex items-center justify-center gap-2 py-3 bg-[#1A1A1A] text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors"
@@ -442,7 +444,29 @@ export function TransactionsPage() {
   const gateways = useSelector(selectGateways);
   const [showFilters, setShowFilters] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const debounceRef = useRef(null);
+
+  const handleExportCsv = async () => {
+    setExporting(true);
+    try {
+      const blob = await transactionsApi.export({
+        ...(filters.search ? { search: filters.search } : {}),
+        ...(filters.status ? { status: filters.status } : {}),
+        ...(filters.gatewayId ? { gatewayId: filters.gatewayId } : {}),
+        ...(filters.startDate ? { from: filters.startDate } : {}),
+        ...(filters.endDate ? { to: filters.endDate } : {}),
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `transactions-${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* silent */ } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -464,7 +488,7 @@ export function TransactionsPage() {
 
   return (
     <AppLayout>
-      <div className="p-8 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
         {error && (
           <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-5 py-4 mb-6">
             <p className="text-sm font-bold text-red-600">{error}</p>
@@ -481,7 +505,7 @@ export function TransactionsPage() {
                 placeholder="Search by ID, customer, email..."
                 value={filters.search}
                 onChange={(e) => dispatch(setTransactionsFilter({ key: "search", value: e.target.value }))}
-                className="w-72 pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#C5E63D] focus:border-transparent shadow-sm font-medium"
+                className="w-full sm:w-72 pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#C5E63D] focus:border-transparent shadow-sm font-medium"
               />
             </div>
             <button
@@ -494,6 +518,14 @@ export function TransactionsPage() {
             </button>
           </div>
           <div className="flex items-center gap-3">
+            <button
+              onClick={handleExportCsv}
+              disabled={exporting}
+              className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 text-gray-600 hover:text-[#1A1A1A] hover:border-gray-300 rounded-xl text-sm font-bold transition-colors disabled:opacity-60"
+            >
+              {exporting ? <Loader2Icon className="w-4 h-4 animate-spin" /> : <DownloadIcon className="w-4 h-4" />}
+              Export CSV
+            </button>
             <button
               onClick={() => setShowPaymentModal(true)}
               className="flex items-center gap-2 px-4 py-2.5 bg-[#22C55E] text-white rounded-xl text-sm font-bold hover:bg-[#16a34a] shadow-sm transition-colors"
@@ -512,13 +544,13 @@ export function TransactionsPage() {
         </div>
 
         {showFilters && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6 flex flex-wrap gap-6 items-end">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6 mb-6 grid grid-cols-2 sm:flex flex-wrap gap-3 sm:gap-5 items-end">
             <div>
               <label className="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wide">Status</label>
               <select
                 value={filters.status}
                 onChange={(e) => dispatch(setTransactionsFilter({ key: "status", value: e.target.value }))}
-                className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#C5E63D]"
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#C5E63D]"
               >
                 <option value="">All statuses</option>
                 <option value="SUCCESS">Success</option>
@@ -532,7 +564,7 @@ export function TransactionsPage() {
               <select
                 value={filters.gatewayId}
                 onChange={(e) => dispatch(setTransactionsFilter({ key: "gatewayId", value: e.target.value }))}
-                className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#C5E63D]"
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#C5E63D]"
               >
                 <option value="">All gateways</option>
                 {gateways.map((gateway) => (
@@ -547,7 +579,7 @@ export function TransactionsPage() {
               <select
                 value={filters.provider}
                 onChange={(e) => dispatch(setTransactionsFilter({ key: "provider", value: e.target.value }))}
-                className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#C5E63D]"
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#C5E63D]"
               >
                 {PROVIDER_OPTIONS.map((provider) => (
                   <option key={provider || "all"} value={provider}>
@@ -562,7 +594,7 @@ export function TransactionsPage() {
                 type="date"
                 value={filters.startDate}
                 onChange={(e) => dispatch(setTransactionsFilter({ key: "startDate", value: e.target.value }))}
-                className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#C5E63D]"
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#C5E63D]"
               />
             </div>
             <div>
@@ -571,7 +603,7 @@ export function TransactionsPage() {
                 type="date"
                 value={filters.endDate}
                 onChange={(e) => dispatch(setTransactionsFilter({ key: "endDate", value: e.target.value }))}
-                className="px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#C5E63D]"
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#C5E63D]"
               />
             </div>
             <button
@@ -586,67 +618,64 @@ export function TransactionsPage() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             {loading ? (
-              <div className="p-8 space-y-4">
+              <div className="p-5 sm:p-8 space-y-4">
                 {[1, 2, 3, 4, 5, 6].map((index) => <LoadingSkeleton key={index} className="h-14" />)}
               </div>
             ) : transactions.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-16 font-medium">No transactions found.</p>
             ) : (
-              <table className="w-full text-sm text-left">
+              <table className="w-full text-sm text-left min-w-[480px]">
                 <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100">
                   <tr>
-                    <th className="px-6 py-4">Transaction ID</th>
-                    <th className="px-6 py-4">Customer</th>
-                    <th className="px-6 py-4">Amount</th>
-                    <th className="px-6 py-4">Gateway</th>
-                    <th className="px-6 py-4">Source</th>
-                    <th className="px-6 py-4">Status</th>
-                    <th className="px-6 py-4">Date</th>
-                    <th className="px-6 py-4 text-right">Actions</th>
+                    <th className="px-3 sm:px-6 py-3 sm:py-4">Ref / Customer</th>
+                    <th className="px-3 sm:px-6 py-3 sm:py-4">Amount</th>
+                    <th className="px-3 sm:px-6 py-3 sm:py-4 hidden md:table-cell">Gateway</th>
+                    <th className="px-3 sm:px-6 py-3 sm:py-4 hidden lg:table-cell">Source</th>
+                    <th className="px-3 sm:px-6 py-3 sm:py-4">Status</th>
+                    <th className="px-3 sm:px-6 py-3 sm:py-4 hidden lg:table-cell">Date</th>
+                    <th className="px-3 sm:px-6 py-3 sm:py-4 text-right"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {transactions.map((tx) => (
-                    <tr key={tx.id} className="hover:bg-gray-50 transition-colors group">
-                      <td className="px-6 py-4 font-mono text-gray-600 font-medium text-xs">{tx.reference.slice(0, 16)}</td>
-                      <td className="px-6 py-4">
-                        <div className="font-bold text-[#1A1A1A]">{tx.customerName}</div>
-                        <div className="text-xs text-gray-500 font-medium">{tx.customerEmail}</div>
+                    <tr key={tx.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4">
+                        <div className="font-mono text-gray-500 text-xs mb-0.5">{tx.reference.slice(0, 12)}</div>
+                        <div className="font-bold text-[#1A1A1A] text-sm truncate max-w-[120px] sm:max-w-none">{tx.customerName}</div>
+                        <div className="text-xs text-gray-400 font-medium hidden sm:block truncate">{tx.customerEmail}</div>
                       </td>
-                      <td className="px-6 py-4 font-bold text-[#1A1A1A]">{fmt(tx.amount)}</td>
-                      <td className="px-6 py-4">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-gray-100 text-gray-700">
-                          {tx.gateway?.name ?? "-"}
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 font-bold text-[#1A1A1A] whitespace-nowrap">{fmt(tx.amount)}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 hidden md:table-cell">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold bg-gray-100 text-gray-700">
+                          {tx.gateway?.name ?? "—"}
                         </span>
-                        <p className="text-[11px] text-gray-400 font-medium mt-1">{tx.gateway?.provider ?? "-"}</p>
+                        <p className="text-[11px] text-gray-400 font-medium mt-0.5">{tx.gateway?.provider ?? "—"}</p>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold ${tx.syncedFromProvider ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"}`}>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 hidden lg:table-cell">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold ${tx.syncedFromProvider ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"}`}>
                           {tx.syncedFromProvider ? "Synced" : "Created"}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${STATUS_STYLES[tx.status] ?? "bg-gray-100 text-gray-600"}`}>
-                          {tx.status === "SUCCESS" && <CheckCircle2Icon className="w-3.5 h-3.5" />}
-                          {tx.status === "FAILED" && <XCircleIcon className="w-3.5 h-3.5" />}
-                          {tx.status === "PENDING" && <ClockIcon className="w-3.5 h-3.5" />}
-                          {tx.status.charAt(0) + tx.status.slice(1).toLowerCase()}
+                      <td className="px-3 sm:px-6 py-3 sm:py-4">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold ${STATUS_STYLES[tx.status] ?? "bg-gray-100 text-gray-600"}`}>
+                          {tx.status === "SUCCESS" && <CheckCircle2Icon className="w-3 h-3" />}
+                          {tx.status === "FAILED"  && <XCircleIcon       className="w-3 h-3" />}
+                          {tx.status === "PENDING" && <ClockIcon          className="w-3 h-3" />}
+                          <span className="hidden sm:inline">{tx.status.charAt(0) + tx.status.slice(1).toLowerCase()}</span>
+                          <span className="sm:hidden">{tx.status.slice(0, 3)}</span>
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-gray-500 font-medium text-xs">{new Date(tx.createdAt).toLocaleString()}</td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={() => dispatch(openTransactionDrawer(tx.id))}
-                            className="p-2 text-gray-400 hover:text-[#22C55E] hover:bg-green-50 rounded-lg transition-colors"
-                            title="View Details"
-                          >
-                            <EyeIcon className="w-4 h-4" />
-                          </button>
-                          <button className="p-2 text-gray-400 hover:text-[#1A1A1A] hover:bg-gray-100 rounded-lg transition-colors">
-                            <MoreHorizontalIcon className="w-4 h-4" />
-                          </button>
-                        </div>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-gray-400 font-medium text-xs hidden lg:table-cell whitespace-nowrap">
+                        {new Date(tx.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 text-right">
+                        <button
+                          onClick={() => dispatch(openTransactionDrawer(tx.id))}
+                          className="p-2 text-gray-400 hover:text-[#22C55E] hover:bg-green-50 rounded-lg transition-colors"
+                          title="View Details"
+                        >
+                          <EyeIcon className="w-4 h-4" />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -656,9 +685,9 @@ export function TransactionsPage() {
           </div>
 
           {!loading && transactions.length > 0 && (
-            <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+            <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-gray-100 flex items-center justify-between flex-wrap gap-3">
               <p className="text-sm text-gray-500 font-medium">
-                Showing <span className="font-bold text-[#1A1A1A]">{(meta.page - 1) * meta.limit + 1}</span>-<span className="font-bold text-[#1A1A1A]">{Math.min(meta.page * meta.limit, meta.total)}</span> of <span className="font-bold text-[#1A1A1A]">{meta.total.toLocaleString()}</span> results
+                <span className="font-bold text-[#1A1A1A]">{(meta.page - 1) * meta.limit + 1}</span>–<span className="font-bold text-[#1A1A1A]">{Math.min(meta.page * meta.limit, meta.total)}</span> <span className="hidden sm:inline">of </span><span className="font-bold text-[#1A1A1A]">{meta.total.toLocaleString()}</span>
               </p>
               <div className="flex gap-2">
                 <button

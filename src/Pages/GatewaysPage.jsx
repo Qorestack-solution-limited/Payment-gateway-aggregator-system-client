@@ -166,7 +166,7 @@ export function GatewaysPage() {
 
   return (
     <AppLayout>
-      <div className="p-8 max-w-7xl mx-auto">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
         {error && (
           <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-5 py-4 mb-6">
             <p className="text-sm font-bold text-red-600">{error}</p>
@@ -174,7 +174,7 @@ export function GatewaysPage() {
           </div>
         )}
 
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-wrap items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8">
           <div>
             <h2 className="text-xl font-bold text-[#1A1A1A]">Connected Gateways</h2>
             <p className="text-sm text-gray-500 font-medium">Manage your payment providers and configurations</p>
@@ -359,7 +359,7 @@ export function GatewaysPage() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <h3 className="text-lg font-bold text-[#1A1A1A]">Add Payment Gateway</h3>
               <button onClick={() => setShowModal(false)} className="p-2 text-gray-400 hover:text-[#1A1A1A] rounded-xl hover:bg-gray-100 transition-colors">
@@ -367,7 +367,7 @@ export function GatewaysPage() {
               </button>
             </div>
 
-            <div className="p-6 space-y-5">
+            <div className="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1">
               {localFormError && (
                 <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm font-bold text-red-600">
                   {localFormError}
@@ -377,7 +377,7 @@ export function GatewaysPage() {
                 <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm font-bold text-red-600">{formError}</div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-bold text-[#1A1A1A] mb-2">Display Name *</label>
                   <input
@@ -464,7 +464,7 @@ export function GatewaysPage() {
 
       {syncTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <div>
                 <h3 className="text-lg font-bold text-[#1A1A1A]">Sync Transactions</h3>
@@ -475,8 +475,8 @@ export function GatewaysPage() {
               </button>
             </div>
 
-            <div className="p-6 space-y-5">
-              <div className="grid grid-cols-2 gap-4">
+            <div className="p-5 sm:p-6 space-y-5 overflow-y-auto flex-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-bold text-[#1A1A1A] mb-2">From</label>
                   <input

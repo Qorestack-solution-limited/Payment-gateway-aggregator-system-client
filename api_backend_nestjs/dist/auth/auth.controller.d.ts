@@ -27,12 +27,16 @@ export declare class AuthController {
             role: import(".prisma/client").$Enums.Role;
             avatarUrl: string | null;
             organizationId: string | null;
+            twoFactorSecret: string | null;
+            twoFactorEnabled: boolean;
             updatedAt: Date;
         };
         accessToken: string;
         refreshToken: string;
     }>;
     login(dto: LoginDto): Promise<{
+        requiresTwoFactor: boolean;
+    } | {
         user: {
             organization: {
                 name: string;
@@ -52,10 +56,12 @@ export declare class AuthController {
             role: import(".prisma/client").$Enums.Role;
             avatarUrl: string | null;
             organizationId: string | null;
+            twoFactorEnabled: boolean;
             updatedAt: Date;
         };
         accessToken: string;
         refreshToken: string;
+        requiresTwoFactor?: undefined;
     }>;
     refresh(dto: RefreshTokenDto): Promise<{
         accessToken: string;
@@ -65,6 +71,16 @@ export declare class AuthController {
         message: string;
     }>;
     resetPassword(dto: ResetPasswordDto): Promise<{
+        message: string;
+    }>;
+    setup2FA(userId: string): Promise<{
+        secret: string;
+        otpauthUrl: string;
+    }>;
+    enable2FA(userId: string, totpCode: string): Promise<{
+        message: string;
+    }>;
+    disable2FA(userId: string, totpCode: string): Promise<{
         message: string;
     }>;
 }

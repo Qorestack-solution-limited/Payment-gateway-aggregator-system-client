@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../common/decorators/get-user.decorator';
@@ -43,5 +43,12 @@ export class WebhooksController {
   @ApiOperation({ summary: 'Get delivery history for a webhook' })
   deliveries(@Param('id') id: string, @GetUser('organizationId') orgId: string) {
     return this.webhooks.getDeliveries(id, orgId);
+  }
+
+  @Post(':id/test')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Send a test event to a webhook endpoint' })
+  sendTest(@Param('id') id: string, @GetUser('organizationId') orgId: string) {
+    return this.webhooks.sendTestEvent(id, orgId);
   }
 }

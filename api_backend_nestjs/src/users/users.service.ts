@@ -1,4 +1,5 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Plan } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateUserDto, ChangePasswordDto } from './dto/update-user.dto';
 import * as bcrypt from 'bcrypt';
@@ -39,5 +40,42 @@ export class UsersService {
     await this.prisma.refreshToken.deleteMany({ where: { userId } });
 
     return { message: 'Password changed successfully' };
+  }
+
+  async getOrganizationMembers(orgId: string) {
+    if (!orgId) return [];
+    return this.prisma.user.findMany({
+      where: { organizationId: orgId },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  async updateOrganizationProfile(orgId: string, data: { name?: string; industry?: string; website?: string; companySize?: string }) {
+    if (!orgId) throw new ForbiddenException('No organization associated with this account');
+    return this.prisma.organization.update({
+      where: { id: orgId },
+      data,
+    });
+  }
+
+  async updateOrganizationPlan(orgId: string, plan: Plan) {
+    if (!orgId) throw new ForbiddenException('No organization associated with this account');
+    const validPlans = Object.values(Plan);
+    if (!validPlans.includes(plan)) {
+      throw new BadRequestException(`Invalid plan. Must be one of: ${validPlans.join(', ')}`);
+    }
+    const org = await this.prisma.organization.update({
+      where: { id: orgId },
+      data: { plan },
+    });
+    return org;
   }
 }

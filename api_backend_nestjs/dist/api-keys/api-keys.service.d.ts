@@ -5,8 +5,8 @@ export declare class ApiKeysService {
     constructor(prisma: PrismaService);
     findAll(orgId: string): import(".prisma/client").Prisma.PrismaPromise<{
         name: string;
-        id: string;
         type: import(".prisma/client").$Enums.ApiKeyType;
+        id: string;
         createdAt: Date;
         key: string;
         isActive: boolean;
@@ -14,8 +14,8 @@ export declare class ApiKeysService {
     }[]>;
     generate(orgId: string, name: string, type: ApiKeyType): Promise<{
         name: string;
-        id: string;
         type: import(".prisma/client").$Enums.ApiKeyType;
+        id: string;
         createdAt: Date;
         organizationId: string;
         key: string;
@@ -24,8 +24,8 @@ export declare class ApiKeysService {
     }>;
     revoke(id: string, orgId: string): Promise<{
         name: string;
-        id: string;
         type: import(".prisma/client").$Enums.ApiKeyType;
+        id: string;
         createdAt: Date;
         organizationId: string;
         key: string;

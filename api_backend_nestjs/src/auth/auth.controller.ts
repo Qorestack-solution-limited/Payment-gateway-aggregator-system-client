@@ -1,11 +1,13 @@
-import { Body, Controller, Post, HttpCode, HttpStatus } from '@nestjs/common';
-import { ApiTags, ApiOperation } from '@nestjs/swagger';
+import { Body, Controller, Post, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { GetUser } from '../common/decorators/get-user.decorator';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -44,5 +46,34 @@ export class AuthController {
   @ApiOperation({ summary: 'Reset password using token from email' })
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.auth.resetPassword(dto);
+  }
+
+  // ── 2FA ──────────────────────────────────────────────────────────────────────
+
+  @Post('2fa/setup')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Generate a TOTP secret and QR code URL' })
+  setup2FA(@GetUser('id') userId: string) {
+    return this.auth.setup2FA(userId);
+  }
+
+  @Post('2fa/enable')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Confirm TOTP code and activate 2FA' })
+  enable2FA(@GetUser('id') userId: string, @Body('totpCode') totpCode: string) {
+    return this.auth.enable2FA(userId, totpCode);
+  }
+
+  @Post('2fa/disable')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify TOTP code and disable 2FA' })
+  disable2FA(@GetUser('id') userId: string, @Body('totpCode') totpCode: string) {
+    return this.auth.disable2FA(userId, totpCode);
   }
 }

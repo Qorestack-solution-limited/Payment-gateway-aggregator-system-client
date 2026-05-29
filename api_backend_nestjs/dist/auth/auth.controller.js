@@ -21,6 +21,8 @@ const login_dto_1 = require("./dto/login.dto");
 const forgot_password_dto_1 = require("./dto/forgot-password.dto");
 const reset_password_dto_1 = require("./dto/reset-password.dto");
 const refresh_token_dto_1 = require("./dto/refresh-token.dto");
+const jwt_auth_guard_1 = require("./guards/jwt-auth.guard");
+const get_user_decorator_1 = require("../common/decorators/get-user.decorator");
 let AuthController = class AuthController {
     constructor(auth) {
         this.auth = auth;
@@ -39,6 +41,15 @@ let AuthController = class AuthController {
     }
     resetPassword(dto) {
         return this.auth.resetPassword(dto);
+    }
+    setup2FA(userId) {
+        return this.auth.setup2FA(userId);
+    }
+    enable2FA(userId, totpCode) {
+        return this.auth.enable2FA(userId, totpCode);
+    }
+    disable2FA(userId, totpCode) {
+        return this.auth.disable2FA(userId, totpCode);
     }
 };
 exports.AuthController = AuthController;
@@ -86,6 +97,41 @@ __decorate([
     __metadata("design:paramtypes", [reset_password_dto_1.ResetPasswordDto]),
     __metadata("design:returntype", void 0)
 ], AuthController.prototype, "resetPassword", null);
+__decorate([
+    (0, common_1.Post)('2fa/setup'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Generate a TOTP secret and QR code URL' }),
+    __param(0, (0, get_user_decorator_1.GetUser)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "setup2FA", null);
+__decorate([
+    (0, common_1.Post)('2fa/enable'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Confirm TOTP code and activate 2FA' }),
+    __param(0, (0, get_user_decorator_1.GetUser)('id')),
+    __param(1, (0, common_1.Body)('totpCode')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "enable2FA", null);
+__decorate([
+    (0, common_1.Post)('2fa/disable'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, swagger_1.ApiOperation)({ summary: 'Verify TOTP code and disable 2FA' }),
+    __param(0, (0, get_user_decorator_1.GetUser)('id')),
+    __param(1, (0, common_1.Body)('totpCode')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], AuthController.prototype, "disable2FA", null);
 exports.AuthController = AuthController = __decorate([
     (0, swagger_1.ApiTags)('Auth'),
     (0, common_1.Controller)('auth'),

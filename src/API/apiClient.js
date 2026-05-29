@@ -107,15 +107,43 @@ export const api = {
   post:   (path, body)  => request(path, { method: "POST",   body: JSON.stringify(body) }),
   patch:  (path, body)  => request(path, { method: "PATCH",  body: JSON.stringify(body) }),
   delete: (path)        => request(path, { method: "DELETE" }),
+  // Raw blob download — bypasses JSON parsing for file exports
+  download: async (path) => {
+    const token = getToken();
+    let res;
+    try {
+      res = await fetch(`${BASE_URL}${path}`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+    } catch {
+      throw new Error("Network error — check your connection or server status.");
+    }
+    if (res.status === 401) {
+      const refreshed = await tryRefresh();
+      if (refreshed) return api.download(path);
+      clearAuth();
+      window.location.replace("/login");
+      throw new Error("Unauthorized");
+    }
+    if (!res.ok) throw new Error("Export failed");
+    return res.blob();
+  },
 };
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 export const authApi = {
-  register:      (data)              => api.post("/auth/register", data),
-  login:         (data)              => api.post("/auth/login", data),
-  forgotPassword:(email)             => api.post("/auth/forgot-password", { email }),
-  resetPassword: (token, password)   => api.post("/auth/reset-password", { token, password }),
-  refresh:       (refreshToken)      => api.post("/auth/refresh", { refreshToken }),
+  register:       (data)              => api.post("/auth/register", data),
+  login:          (data)              => api.post("/auth/login", data),
+  forgotPassword: (email)             => api.post("/auth/forgot-password", { email }),
+  resetPassword:  (token, password)   => api.post("/auth/reset-password", { token, password }),
+  refresh:        (refreshToken)      => api.post("/auth/refresh", { refreshToken }),
+};
+
+// ─── 2FA ──────────────────────────────────────────────────────────────────────
+export const twoFactorApi = {
+  setup:   ()           => api.post("/auth/2fa/setup", {}),
+  enable:  (totpCode)   => api.post("/auth/2fa/enable", { totpCode }),
+  disable: (totpCode)   => api.post("/auth/2fa/disable", { totpCode }),
 };
 
 // ─── Users ────────────────────────────────────────────────────────────────────
@@ -139,6 +167,12 @@ export const transactionsApi = {
       Object.fromEntries(Object.entries(params).filter(([, v]) => v !== "" && v != null))
     ).toString();
     return api.get(`/transactions${qs ? `?${qs}` : ""}`);
+  },
+  export: (params = {}) => {
+    const qs = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== "" && v != null))
+    ).toString();
+    return api.download(`/transactions/export${qs ? `?${qs}` : ""}`);
   },
   get:          (id)         => api.get(`/transactions/${id}`),
   getByReference:(reference) => api.get(`/transactions/reference/${reference}`),
@@ -184,6 +218,7 @@ export const webhooksApi = {
   update:     (id, data)  => api.patch(`/webhooks/${id}`, data),
   remove:     (id)        => api.delete(`/webhooks/${id}`),
   deliveries: (id)        => api.get(`/webhooks/${id}/deliveries`),
+  test:       (id)        => api.post(`/webhooks/${id}/test`, {}),
 };
 
 // ─── Notifications ────────────────────────────────────────────────────────────
@@ -192,4 +227,16 @@ export const notificationsApi = {
   markRead:   (id)  => api.patch(`/notifications/${id}/read`),
   markAllRead:()    => api.patch("/notifications/read-all"),
   remove:     (id)  => api.delete(`/notifications/${id}`),
+};
+
+// ─── Search ───────────────────────────────────────────────────────────────────
+export const searchApi = {
+  global: (q) => api.get(`/search?q=${encodeURIComponent(q)}`),
+};
+
+// ─── Organization ─────────────────────────────────────────────────────────────
+export const organizationApi = {
+  members:       ()      => api.get("/users/organization/members"),
+  updatePlan:    (plan)  => api.patch("/users/me/organization", { plan }),
+  updateProfile: (data)  => api.patch("/users/me/organization/profile", data),
 };

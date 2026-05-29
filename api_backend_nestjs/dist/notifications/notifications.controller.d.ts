@@ -4,10 +4,10 @@ export declare class NotificationsController {
     constructor(notifications: NotificationsService);
     findAll(userId: string): Promise<{
         notifications: {
-            id: string;
-            title: string;
-            message: string;
             type: import(".prisma/client").$Enums.NotificationType;
+            title: string;
+            id: string;
+            message: string;
             isRead: boolean;
             createdAt: Date;
             userId: string;

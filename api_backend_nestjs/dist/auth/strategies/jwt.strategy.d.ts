@@ -27,6 +27,8 @@ export declare class JwtStrategy extends JwtStrategy_base {
         role: import(".prisma/client").$Enums.Role;
         avatarUrl: string | null;
         organizationId: string | null;
+        twoFactorSecret: string | null;
+        twoFactorEnabled: boolean;
         updatedAt: Date;
     }>;
 }

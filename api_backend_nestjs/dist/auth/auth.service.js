@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
+const otplib_1 = require("otplib");
 const jwt_1 = require("@nestjs/jwt");
 const config_1 = require("@nestjs/config");
 const prisma_service_1 = require("../prisma/prisma.service");
@@ -73,9 +74,50 @@ let AuthService = class AuthService {
         const valid = await bcrypt.compare(dto.password, user.password);
         if (!valid)
             throw new common_1.UnauthorizedException('Incorrect email or password');
+        if (user.twoFactorEnabled) {
+            if (!dto.totpCode) {
+                return { requiresTwoFactor: true };
+            }
+            const codeValid = otplib_1.authenticator.verify({ token: dto.totpCode, secret: user.twoFactorSecret });
+            if (!codeValid)
+                throw new common_1.UnauthorizedException('Invalid authenticator code');
+        }
         const tokens = await this.generateTokens(user.id, user.email);
-        const { password, ...userOut } = user;
+        const { password, twoFactorSecret, ...userOut } = user;
         return { ...tokens, user: userOut };
+    }
+    async setup2FA(userId) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        if (user.twoFactorEnabled)
+            throw new common_1.BadRequestException('2FA is already enabled');
+        const secret = otplib_1.authenticator.generateSecret();
+        const otpauthUrl = otplib_1.authenticator.keyuri(user.email, 'PayOrchestra', secret);
+        await this.prisma.user.update({ where: { id: userId }, data: { twoFactorSecret: secret } });
+        return { secret, otpauthUrl };
+    }
+    async enable2FA(userId, totpCode) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user?.twoFactorSecret)
+            throw new common_1.BadRequestException('Run 2FA setup first');
+        if (user.twoFactorEnabled)
+            throw new common_1.BadRequestException('2FA is already enabled');
+        const valid = otplib_1.authenticator.verify({ token: totpCode, secret: user.twoFactorSecret });
+        if (!valid)
+            throw new common_1.UnauthorizedException('Invalid authenticator code');
+        await this.prisma.user.update({ where: { id: userId }, data: { twoFactorEnabled: true } });
+        return { message: '2FA enabled successfully' };
+    }
+    async disable2FA(userId, totpCode) {
+        const user = await this.prisma.user.findUnique({ where: { id: userId } });
+        if (!user?.twoFactorEnabled)
+            throw new common_1.BadRequestException('2FA is not enabled');
+        const valid = otplib_1.authenticator.verify({ token: totpCode, secret: user.twoFactorSecret });
+        if (!valid)
+            throw new common_1.UnauthorizedException('Invalid authenticator code');
+        await this.prisma.user.update({ where: { id: userId }, data: { twoFactorEnabled: false, twoFactorSecret: null } });
+        return { message: '2FA disabled successfully' };
     }
     async refreshToken(token) {
         const stored = await this.prisma.refreshToken.findUnique({ where: { token } });

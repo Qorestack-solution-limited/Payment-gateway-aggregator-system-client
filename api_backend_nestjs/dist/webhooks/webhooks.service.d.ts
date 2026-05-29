@@ -66,6 +66,14 @@ export declare class WebhooksService {
         statusCode: number;
         response: string | null;
     }[]>;
+    sendTestEvent(id: string, orgId: string): Promise<{
+        event: string;
+        id: string;
+        deliveredAt: Date;
+        webhookId: string;
+        statusCode: number;
+        response: string | null;
+    }>;
     dispatchEvent(orgId: string, event: string, data: unknown): Promise<void>;
     private deliverWebhook;
 }

@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Headers, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Response } from 'express';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApiKeyAuthGuard } from '../auth/guards/api-key-auth.guard';
@@ -12,6 +13,20 @@ import { TransactionStatus } from '@prisma/client';
 @Controller('transactions')
 export class TransactionsController {
   constructor(private txs: TransactionsService) {}
+
+  @Get('export')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Export transactions as CSV' })
+  async exportCsv(
+    @GetUser('organizationId') orgId: string,
+    @Query() query: QueryTransactionDto,
+    @Res() res: Response,
+  ) {
+    const csv = await this.txs.exportCsv(orgId, query);
+    res.set('Content-Type', 'text/csv; charset=utf-8');
+    res.set('Content-Disposition', `attachment; filename="transactions-${Date.now()}.csv"`);
+    res.send(csv);
+  }
 
   @Get()
   @UseGuards(ApiKeyAuthGuard)

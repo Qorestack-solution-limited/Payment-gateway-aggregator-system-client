@@ -11,7 +11,7 @@ import {
   selectPendingTransactionsCount,
 } from "../store/slices/transactionsSlice";
 
-export function AppSidebar() {
+export function AppSidebar({ isOpen = false, onClose = () => {} }) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const user = useSelector(selectUser);
@@ -30,6 +30,7 @@ export function AppSidebar() {
   const handleLogout = () => {
     dispatch(logoutSuccess());
     navigate("/login");
+    onClose();
   };
 
   const navItems = [
@@ -42,7 +43,7 @@ export function AppSidebar() {
   ];
 
   return (
-    <aside className="fixed left-0 top-0 h-screen w-[250px] bg-white flex flex-col py-6 px-4 border-r border-gray-100 z-20">
+    <aside className={`fixed left-0 top-0 h-screen w-[250px] bg-white flex flex-col py-6 px-4 border-r border-gray-100 z-20 transition-transform duration-300 lg:translate-x-0 ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
       {/* Logo */}
       <div className="flex items-center gap-2 px-2 mb-8">
         <div className="w-8 h-8 rounded-full bg-[#C5E63D] flex items-center justify-center">
@@ -68,6 +69,7 @@ export function AppSidebar() {
           <NavLink
             key={item.to}
             to={item.to}
+            onClick={onClose}
             className={({ isActive }) =>
               `w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
                 isActive

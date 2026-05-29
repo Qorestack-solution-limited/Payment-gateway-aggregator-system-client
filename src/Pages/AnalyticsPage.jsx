@@ -1,5 +1,5 @@
-import { useEffect, useCallback } from "react";
-import { CalendarIcon, TrendingUpIcon, TrendingDownIcon } from "lucide-react";
+import { useEffect, useCallback, useState } from "react";
+import { CalendarIcon, TrendingUpIcon, TrendingDownIcon, DownloadIcon, Loader2Icon } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { AppLayout } from "../Components/AppLayout";
 import { LoadingSkeleton } from "../Components/LoadingSkeleton";
@@ -47,9 +47,46 @@ export function AnalyticsPage() {
   const loading = useSelector(selectAnalyticsLoading);
   const error = useSelector(selectAnalyticsError);
 
+  const [exporting, setExporting] = useState(false);
+
   const load = useCallback(async () => {
     dispatch(fetchAnalyticsData());
   }, [dispatch, days]);
+
+  const handleExportCsv = () => {
+    setExporting(true);
+    try {
+      const escape = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+      const rows = [];
+      if (summary) {
+        rows.push(["Section", "Metric", "Value"]);
+        rows.push(["Summary", "Total Revenue", summary.totalRevenue ?? 0]);
+        rows.push(["Summary", "Total Transactions", summary.totalTransactions ?? 0]);
+        rows.push(["Summary", "Successful Transactions", summary.successfulTransactions ?? 0]);
+        rows.push(["Summary", "Failed Transactions", summary.failedTransactions ?? 0]);
+        rows.push([]);
+      }
+      if (chart.length) {
+        rows.push(["Date", "Revenue", "Transaction Count"]);
+        chart.forEach((d) => rows.push([d.date, d.revenue ?? 0, d.count ?? 0]));
+        rows.push([]);
+      }
+      if (breakdown.length) {
+        rows.push(["Gateway", "Volume", "Revenue", "Success Rate"]);
+        breakdown.forEach((d) => rows.push([d.gateway, d.volume ?? 0, d.revenue ?? 0, `${Number(d.successRate ?? 0).toFixed(2)}%`]));
+      }
+      const csv = rows.map((r) => r.length ? r.map(escape).join(",") : "").join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `analytics-${days}d-${Date.now()}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* silent */ } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => { load(); }, [load]);
 
@@ -68,7 +105,7 @@ export function AnalyticsPage() {
 
   return (
     <AppLayout>
-      <div className="p-8 max-w-7xl mx-auto space-y-8">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 lg:space-y-8">
 
         {error && (
           <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-5 py-4">
@@ -78,19 +115,26 @@ export function AnalyticsPage() {
         )}
 
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
           <div>
-            <h2 className="text-xl font-bold text-[#1A1A1A]">Analytics & Reports</h2>
+            <h2 className="text-lg sm:text-xl font-bold text-[#1A1A1A]">Analytics & Reports</h2>
             <p className="text-sm text-gray-500 font-medium">Deep dive into your payment performance</p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
+            <button
+              onClick={handleExportCsv}
+              disabled={exporting || loading}
+              className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 text-gray-600 hover:text-[#1A1A1A] hover:border-gray-300 rounded-xl text-sm font-bold transition-colors disabled:opacity-60 bg-white shadow-sm">
+              {exporting ? <Loader2Icon className="w-4 h-4 animate-spin" /> : <DownloadIcon className="w-4 h-4" />}
+              Export CSV
+            </button>
             <div className="flex items-center bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
               {DAYS_OPTIONS.map((d) => (
                 <button
                   key={d}
                   onClick={() => dispatch(setAnalyticsDays(d))}
-                  className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-bold transition-colors ${days === d ? "bg-[#C5E63D] text-[#1A1A1A]" : "text-gray-500 hover:bg-gray-50"}`}>
-                  <CalendarIcon className="w-4 h-4" />
+                  className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-sm font-bold transition-colors ${days === d ? "bg-[#C5E63D] text-[#1A1A1A]" : "text-gray-500 hover:bg-gray-50"}`}>
+                  <CalendarIcon className="w-4 h-4 hidden sm:block" />
                   {d}d
                 </button>
               ))}
@@ -113,23 +157,23 @@ export function AnalyticsPage() {
             ].map((s) => (
               <div key={s.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                 <p className="text-xs text-gray-500 font-bold uppercase tracking-wide mb-1">{s.label}</p>
-                <p className="text-xl font-bold text-[#1A1A1A]">{s.value}</p>
+                <p className="text-base sm:text-xl font-bold text-[#1A1A1A] truncate">{s.value}</p>
               </div>
             ))}
           </div>
         )}
 
         {/* Revenue Chart */}
-        <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
-          <h3 className="text-lg font-bold text-[#1A1A1A] mb-8">Revenue Growth</h3>
+        <div className="bg-white p-5 sm:p-8 rounded-2xl border border-gray-100 shadow-sm">
+          <h3 className="text-base sm:text-lg font-bold text-[#1A1A1A] mb-5 sm:mb-8">Revenue Growth</h3>
           {loading ? (
-            <LoadingSkeleton className="h-64" />
+            <LoadingSkeleton className="h-48 sm:h-64" />
           ) : chart.length === 0 ? (
-            <div className="h-64 flex items-center justify-center text-gray-400 text-sm font-medium">No revenue data for this period.</div>
+            <div className="h-48 sm:h-64 flex items-center justify-center text-gray-400 text-sm font-medium">No revenue data for this period.</div>
           ) : (
             <>
               {/* SVG line chart */}
-              <div className="relative h-64 w-full">
+              <div className="relative h-48 sm:h-64 w-full">
                 <svg className="absolute inset-0 w-full h-full" viewBox="0 0 1000 240" preserveAspectRatio="none">
                   <defs>
                     <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
@@ -174,8 +218,8 @@ export function AnalyticsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
           {/* Gateway Breakdown */}
-          <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
-            <h3 className="text-lg font-bold text-[#1A1A1A] mb-8">Transaction Volume by Gateway</h3>
+          <div className="bg-white p-5 sm:p-8 rounded-2xl border border-gray-100 shadow-sm">
+            <h3 className="text-base sm:text-lg font-bold text-[#1A1A1A] mb-5 sm:mb-8">Transaction Volume by Gateway</h3>
             {loading ? (
               <div className="space-y-5">
                 {[1,2,3].map((i) => <LoadingSkeleton key={i} className="h-8" />)}
@@ -201,8 +245,8 @@ export function AnalyticsPage() {
           </div>
 
           {/* KPI Tiles */}
-          <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
-            <h3 className="text-lg font-bold text-[#1A1A1A] mb-8">Key Performance Indicators</h3>
+          <div className="bg-white p-5 sm:p-8 rounded-2xl border border-gray-100 shadow-sm">
+            <h3 className="text-base sm:text-lg font-bold text-[#1A1A1A] mb-5 sm:mb-8">Key Performance Indicators</h3>
             {loading ? (
               <div className="grid grid-cols-2 gap-4">
                 {[1,2,3,4].map((i) => <LoadingSkeleton key={i} className="h-24" />)}
@@ -212,7 +256,7 @@ export function AnalyticsPage() {
                 {kpiTiles.map((kpi) => (
                   <div key={kpi.label} className="p-5 bg-gray-50 rounded-xl border border-gray-100">
                     <p className="text-xs text-gray-500 font-bold uppercase tracking-wide mb-1">{kpi.label}</p>
-                    <p className="text-xl font-bold text-[#1A1A1A]">{kpi.value}</p>
+                    <p className="text-base sm:text-xl font-bold text-[#1A1A1A] truncate">{kpi.value}</p>
                     {kpi.change !== undefined && kpi.change !== null && (
                       <span className={`text-xs font-bold flex items-center mt-2 ${kpi.up ? "text-[#22C55E]" : "text-red-500"}`}>
                         {kpi.up ? <TrendingUpIcon className="w-3 h-3 mr-1" /> : <TrendingDownIcon className="w-3 h-3 mr-1" />}

@@ -69,6 +69,50 @@ let TransactionsService = class TransactionsService {
             meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
         };
     }
+    async exportCsv(orgId, query) {
+        const { search, status, gatewayId, provider, from, to } = query;
+        const where = { organizationId: orgId };
+        if (status)
+            where.status = status;
+        if (gatewayId)
+            where.gatewayId = gatewayId;
+        if (provider)
+            where.gateway = { provider };
+        if (search) {
+            where.OR = [
+                { customerName: { contains: search, mode: 'insensitive' } },
+                { customerEmail: { contains: search, mode: 'insensitive' } },
+                { reference: { contains: search, mode: 'insensitive' } },
+            ];
+        }
+        if (from || to) {
+            where.createdAt = {};
+            if (from)
+                where.createdAt.gte = new Date(from);
+            if (to)
+                where.createdAt.lte = new Date(to);
+        }
+        const rows = await this.prisma.transaction.findMany({
+            where,
+            orderBy: { createdAt: 'desc' },
+            take: 10_000,
+            include: { gateway: { select: { name: true, provider: true } } },
+        });
+        const escape = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+        const headers = ['Reference', 'Customer Name', 'Customer Email', 'Amount', 'Currency', 'Status', 'Gateway', 'Provider', 'Date'];
+        const lines = rows.map((tx) => [
+            tx.reference,
+            tx.customerName,
+            tx.customerEmail,
+            tx.amount.toString(),
+            tx.currency,
+            tx.status,
+            tx.gateway?.name ?? '',
+            tx.gateway?.provider ?? '',
+            new Date(tx.createdAt).toISOString(),
+        ].map(escape).join(','));
+        return [headers.map(escape).join(','), ...lines].join('\n');
+    }
     async findOne(id, orgId) {
         const tx = await this.prisma.transaction.findUnique({
             where: { id },

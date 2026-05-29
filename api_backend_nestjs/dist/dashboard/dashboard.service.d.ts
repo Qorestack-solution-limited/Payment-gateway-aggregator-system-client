@@ -35,11 +35,11 @@ export declare class DashboardService {
                 name: string;
             };
         } & {
+            description: string | null;
             id: string;
             createdAt: Date;
             organizationId: string;
             updatedAt: Date;
-            description: string | null;
             status: import(".prisma/client").$Enums.TransactionStatus;
             lastSyncedAt: Date | null;
             reference: string;

@@ -1,9 +1,11 @@
+import { Response } from 'express';
 import { TransactionsService } from './transactions.service';
 import { CreateTransactionDto, QueryTransactionDto } from './dto/transaction.dto';
 import { TransactionStatus } from '@prisma/client';
 export declare class TransactionsController {
     private txs;
     constructor(txs: TransactionsService);
+    exportCsv(orgId: string, query: QueryTransactionDto, res: Response): Promise<void>;
     findAll(orgId: string, query: QueryTransactionDto): Promise<{
         data: ({
             gateway: {
@@ -11,11 +13,11 @@ export declare class TransactionsController {
                 provider: import(".prisma/client").$Enums.GatewayProvider;
             };
         } & {
+            description: string | null;
             id: string;
             createdAt: Date;
             organizationId: string;
             updatedAt: Date;
-            description: string | null;
             status: import(".prisma/client").$Enums.TransactionStatus;
             lastSyncedAt: Date | null;
             reference: string;
@@ -41,8 +43,8 @@ export declare class TransactionsController {
     findByReference(reference: string, orgId: string): Promise<{
         gateway: {
             name: string;
-            id: string;
             type: string;
+            id: string;
             createdAt: Date;
             organizationId: string;
             updatedAt: Date;
@@ -57,11 +59,11 @@ export declare class TransactionsController {
             lastSyncMessage: string | null;
         };
     } & {
+        description: string | null;
         id: string;
         createdAt: Date;
         organizationId: string;
         updatedAt: Date;
-        description: string | null;
         status: import(".prisma/client").$Enums.TransactionStatus;
         lastSyncedAt: Date | null;
         reference: string;
@@ -80,8 +82,8 @@ export declare class TransactionsController {
     findOne(id: string, orgId: string): Promise<{
         gateway: {
             name: string;
-            id: string;
             type: string;
+            id: string;
             createdAt: Date;
             organizationId: string;
             updatedAt: Date;
@@ -96,11 +98,11 @@ export declare class TransactionsController {
             lastSyncMessage: string | null;
         };
     } & {
+        description: string | null;
         id: string;
         createdAt: Date;
         organizationId: string;
         updatedAt: Date;
-        description: string | null;
         status: import(".prisma/client").$Enums.TransactionStatus;
         lastSyncedAt: Date | null;
         reference: string;
@@ -121,8 +123,8 @@ export declare class TransactionsController {
         accessCode: string;
         gateway: {
             name: string;
-            id: string;
             type: string;
+            id: string;
             createdAt: Date;
             organizationId: string;
             updatedAt: Date;
@@ -136,11 +138,11 @@ export declare class TransactionsController {
             lastSyncStatus: string | null;
             lastSyncMessage: string | null;
         };
+        description: string | null;
         id: string;
         createdAt: Date;
         organizationId: string;
         updatedAt: Date;
-        description: string | null;
         status: import(".prisma/client").$Enums.TransactionStatus;
         lastSyncedAt: Date | null;
         reference: string;
@@ -159,8 +161,8 @@ export declare class TransactionsController {
     verify(id: string, orgId: string): Promise<{
         gateway: {
             name: string;
-            id: string;
             type: string;
+            id: string;
             createdAt: Date;
             organizationId: string;
             updatedAt: Date;
@@ -175,11 +177,11 @@ export declare class TransactionsController {
             lastSyncMessage: string | null;
         };
     } & {
+        description: string | null;
         id: string;
         createdAt: Date;
         organizationId: string;
         updatedAt: Date;
-        description: string | null;
         status: import(".prisma/client").$Enums.TransactionStatus;
         lastSyncedAt: Date | null;
         reference: string;
@@ -196,11 +198,11 @@ export declare class TransactionsController {
         metadata: import("@prisma/client/runtime/library").JsonValue | null;
     }>;
     updateStatus(id: string, orgId: string, status: TransactionStatus): Promise<{
+        description: string | null;
         id: string;
         createdAt: Date;
         organizationId: string;
         updatedAt: Date;
-        description: string | null;
         status: import(".prisma/client").$Enums.TransactionStatus;
         lastSyncedAt: Date | null;
         reference: string;

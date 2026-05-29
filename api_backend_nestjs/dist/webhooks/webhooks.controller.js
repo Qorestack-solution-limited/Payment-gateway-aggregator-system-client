@@ -41,6 +41,9 @@ let WebhooksController = class WebhooksController {
     deliveries(id, orgId) {
         return this.webhooks.getDeliveries(id, orgId);
     }
+    sendTest(id, orgId) {
+        return this.webhooks.sendTestEvent(id, orgId);
+    }
 };
 exports.WebhooksController = WebhooksController;
 __decorate([
@@ -94,6 +97,16 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", void 0)
 ], WebhooksController.prototype, "deliveries", null);
+__decorate([
+    (0, common_1.Post)(':id/test'),
+    (0, common_1.HttpCode)(200),
+    (0, swagger_1.ApiOperation)({ summary: 'Send a test event to a webhook endpoint' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, get_user_decorator_1.GetUser)('organizationId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], WebhooksController.prototype, "sendTest", null);
 exports.WebhooksController = WebhooksController = __decorate([
     (0, swagger_1.ApiTags)('Webhooks'),
     (0, swagger_1.ApiBearerAuth)(),

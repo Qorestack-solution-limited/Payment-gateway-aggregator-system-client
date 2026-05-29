@@ -21,6 +21,7 @@ const dashboard_module_1 = require("./dashboard/dashboard.module");
 const mail_module_1 = require("./mail/mail.module");
 const notifications_module_1 = require("./notifications/notifications.module");
 const payments_module_1 = require("./payments/payments.module");
+const search_module_1 = require("./search/search.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -40,6 +41,7 @@ exports.AppModule = AppModule = __decorate([
             webhooks_module_1.WebhooksModule,
             dashboard_module_1.DashboardModule,
             notifications_module_1.NotificationsModule,
+            search_module_1.SearchModule,
         ],
     })
 ], AppModule);

@@ -11,6 +11,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersService = void 0;
 const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../prisma/prisma.service");
 const bcrypt = require("bcrypt");
 let UsersService = class UsersService {
@@ -47,6 +48,43 @@ let UsersService = class UsersService {
         await this.prisma.user.update({ where: { id: userId }, data: { password: hashed } });
         await this.prisma.refreshToken.deleteMany({ where: { userId } });
         return { message: 'Password changed successfully' };
+    }
+    async getOrganizationMembers(orgId) {
+        if (!orgId)
+            return [];
+        return this.prisma.user.findMany({
+            where: { organizationId: orgId },
+            select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                role: true,
+                createdAt: true,
+            },
+            orderBy: { createdAt: 'asc' },
+        });
+    }
+    async updateOrganizationProfile(orgId, data) {
+        if (!orgId)
+            throw new common_1.ForbiddenException('No organization associated with this account');
+        return this.prisma.organization.update({
+            where: { id: orgId },
+            data,
+        });
+    }
+    async updateOrganizationPlan(orgId, plan) {
+        if (!orgId)
+            throw new common_1.ForbiddenException('No organization associated with this account');
+        const validPlans = Object.values(client_1.Plan);
+        if (!validPlans.includes(plan)) {
+            throw new common_1.BadRequestException(`Invalid plan. Must be one of: ${validPlans.join(', ')}`);
+        }
+        const org = await this.prisma.organization.update({
+            where: { id: orgId },
+            data: { plan },
+        });
+        return org;
     }
 };
 exports.UsersService = UsersService;

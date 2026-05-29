@@ -64,6 +64,27 @@ let WebhooksService = class WebhooksService {
             take: 50,
         });
     }
+    async sendTestEvent(id, orgId) {
+        const webhook = await this.assertOwnership(id, orgId);
+        const testPayload = {
+            id: `evt_test_${crypto.randomBytes(12).toString('hex')}`,
+            event: 'payment.test',
+            data: {
+                reference: 'txn_test_demo',
+                amount: 10000,
+                currency: 'NGN',
+                status: 'SUCCESS',
+                customerName: 'Test Customer',
+                customerEmail: 'test@payorchestra.com',
+            },
+            createdAt: new Date().toISOString(),
+        };
+        await this.deliverWebhook(webhook, 'payment.test', testPayload);
+        return this.prisma.webhookDelivery.findFirst({
+            where: { webhookId: id },
+            orderBy: { deliveredAt: 'desc' },
+        });
+    }
     async dispatchEvent(orgId, event, data) {
         const webhooks = await this.prisma.webhook.findMany({
             where: {

@@ -63,4 +63,12 @@ export declare class WebhooksController {
         statusCode: number;
         response: string | null;
     }[]>;
+    sendTest(id: string, orgId: string): Promise<{
+        event: string;
+        id: string;
+        deliveredAt: Date;
+        webhookId: string;
+        statusCode: number;
+        response: string | null;
+    }>;
 }

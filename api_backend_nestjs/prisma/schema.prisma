@@ -69,11 +69,13 @@ model User {
   avatarUrl      String?
   organizationId String?
   organization   Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  refreshTokens  RefreshToken[]
-  passwordResets PasswordReset[]
-  notifications  Notification[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  twoFactorSecret  String?
+  twoFactorEnabled Boolean        @default(false)
+  refreshTokens    RefreshToken[]
+  passwordResets   PasswordReset[]
+  notifications    Notification[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 
   @@index([email])
 }

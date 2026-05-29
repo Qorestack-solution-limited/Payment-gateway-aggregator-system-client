@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersController = void 0;
 const common_1 = require("@nestjs/common");
+const client_1 = require("@prisma/client");
 const swagger_1 = require("@nestjs/swagger");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const get_user_decorator_1 = require("../common/decorators/get-user.decorator");
@@ -31,6 +32,15 @@ let UsersController = class UsersController {
     }
     changePassword(userId, dto) {
         return this.users.changePassword(userId, dto);
+    }
+    getMembers(orgId) {
+        return this.users.getOrganizationMembers(orgId);
+    }
+    updateOrganization(orgId, plan) {
+        return this.users.updateOrganizationPlan(orgId, plan);
+    }
+    updateOrgProfile(orgId, dto) {
+        return this.users.updateOrganizationProfile(orgId, dto);
     }
 };
 exports.UsersController = UsersController;
@@ -60,6 +70,32 @@ __decorate([
     __metadata("design:paramtypes", [String, update_user_dto_1.ChangePasswordDto]),
     __metadata("design:returntype", void 0)
 ], UsersController.prototype, "changePassword", null);
+__decorate([
+    (0, common_1.Get)('organization/members'),
+    (0, swagger_1.ApiOperation)({ summary: 'List all members in the current organization' }),
+    __param(0, (0, get_user_decorator_1.GetUser)('organizationId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "getMembers", null);
+__decorate([
+    (0, common_1.Patch)('me/organization'),
+    (0, swagger_1.ApiOperation)({ summary: 'Update organization plan' }),
+    __param(0, (0, get_user_decorator_1.GetUser)('organizationId')),
+    __param(1, (0, common_1.Body)('plan')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "updateOrganization", null);
+__decorate([
+    (0, common_1.Patch)('me/organization/profile'),
+    (0, swagger_1.ApiOperation)({ summary: 'Update organization profile (name, industry, website, size)' }),
+    __param(0, (0, get_user_decorator_1.GetUser)('organizationId')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "updateOrgProfile", null);
 exports.UsersController = UsersController = __decorate([
     (0, swagger_1.ApiTags)('Users'),
     (0, swagger_1.ApiBearerAuth)(),

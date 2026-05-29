@@ -12,7 +12,9 @@ import {
   TerminalIcon,
   Trash2Icon,
   XIcon,
+  ZapIcon,
 } from "lucide-react";
+import { webhooksApi } from "../API/apiClient";
 import { AppLayout } from "../Components/AppLayout";
 import { LoadingSkeleton } from "../Components/LoadingSkeleton";
 import {
@@ -61,41 +63,47 @@ function buildSdkSnippets({ language, apiKey, gatewayId }) {
 
   if (language === "javascript") {
     return {
-      install: "npm install",
-      client: `const PAYORCHESTRA_API = "${baseUrl}";
-const PAYORCHESTRA_KEY = "${key}";
+      install: "npm install @payorchestra/sdk",
+      client: `import { PayOrchestraClient } from "@payorchestra/sdk";
 
-export async function payOrchestraRequest(path, options = {}) {
-  const response = await fetch(\`\${PAYORCHESTRA_API}\${path}\`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: \`Bearer \${PAYORCHESTRA_KEY}\`,
-      ...(options.headers || {}),
-    },
-  });
-
-  const payload = await response.json();
-  if (!response.ok) throw new Error(payload.message || "Request failed");
-  return payload.data;
-}`,
-      transaction: `import { payOrchestraRequest } from "./payorchestra-client";
-
-const transaction = await payOrchestraRequest("/transactions", {
-  method: "POST",
-  body: JSON.stringify({
+const client = new PayOrchestraClient({
+  apiKey: "${key}",
+  // baseUrl defaults to https://api.payorchestra.com/v1
+});`,
+      transaction: `// Create a transaction
+const tx = await client.createTransaction(
+  {
     amount: 25000,
     currency: "NGN",
     customerName: "Jane Doe",
     customerEmail: "jane@example.com",
     gatewayId: "${gw}",
-    description: "Starter plan purchase",
-  }),
-});
+    description: "Order payment",
+  },
+  { idempotencyKey: \`order-\${crypto.randomUUID()}\` }
+);
 
-console.log(transaction);`,
-      webhook: `app.post("/webhooks/payorchestra", async (req, res) => {
-  console.log("Incoming PayOrchestra event", req.body);
+// List transactions
+const { data, meta } = await client.listTransactions({ status: "SUCCESS", limit: 20 });
+
+// Get gateways
+const gateways = await client.listGateways();
+
+console.log(tx.reference, meta.total);`,
+      webhook: `import { verifyWebhookSignature } from "@payorchestra/sdk";
+
+app.post("/webhooks/payorchestra", (req, res) => {
+  const isValid = verifyWebhookSignature({
+    secret: process.env.PAYORCHESTRA_WEBHOOK_SECRET,
+    payload: JSON.stringify(req.body),
+    timestamp: req.headers["x-payorchestra-timestamp"],
+    signature: req.headers["x-payorchestra-signature"],
+  });
+
+  if (!isValid) return res.status(400).json({ error: "Invalid signature" });
+
+  const { event, data } = req.body;
+  console.log("PayOrchestra event:", event, data);
   res.status(200).json({ received: true });
 });`,
     };
@@ -103,42 +111,50 @@ console.log(transaction);`,
 
   if (language === "node") {
     return {
-      install: "npm install axios express",
-      client: `const axios = require("axios");
+      install: "npm install @payorchestra/sdk",
+      client: `const { PayOrchestraClient } = require("@payorchestra/sdk");
 
-const client = axios.create({
-  baseURL: "${baseUrl}",
-  headers: {
-    Authorization: "Bearer ${key}",
-    "Content-Type": "application/json",
-  },
-});
+const client = new PayOrchestraClient({
+  apiKey: "${key}",
+});`,
+      transaction: `const { verifyWebhookSignature } = require("@payorchestra/sdk");
 
-module.exports = client;`,
-      transaction: `const client = require("./payorchestra");
+async function run() {
+  // Create a transaction
+  const tx = await client.createTransaction(
+    {
+      amount: 25000,
+      currency: "NGN",
+      customerName: "Jane Doe",
+      customerEmail: "jane@example.com",
+      gatewayId: "${gw}",
+    },
+    { idempotencyKey: \`order-\${Date.now()}\` }
+  );
 
-async function createTransaction() {
-  const { data } = await client.post("/transactions", {
-    amount: 25000,
-    currency: "NGN",
-    customerName: "Jane Doe",
-    customerEmail: "jane@example.com",
-    gatewayId: "${gw}",
-    description: "Starter plan purchase",
-  });
-
-  console.log(data);
+  // Verify & list
+  const verified = await client.verifyTransaction(tx.id);
+  const gateways = await client.listGateways();
+  console.log(tx.reference, verified.status, gateways.length);
 }
 
-createTransaction().catch(console.error);`,
+run().catch(console.error);`,
       webhook: `const express = require("express");
+const { verifyWebhookSignature } = require("@payorchestra/sdk");
 const app = express();
-
 app.use(express.json());
 
 app.post("/webhooks/payorchestra", (req, res) => {
-  console.log(req.body);
-  res.status(200).json({ received: true });
+  const isValid = verifyWebhookSignature({
+    secret: process.env.PAYORCHESTRA_WEBHOOK_SECRET,
+    payload: JSON.stringify(req.body),
+    timestamp: req.headers["x-payorchestra-timestamp"],
+    signature: req.headers["x-payorchestra-signature"],
+  });
+
+  if (!isValid) return res.status(400).json({ error: "Invalid signature" });
+  console.log("Event:", req.body.event, req.body.data);
+  res.json({ received: true });
 });`,
     };
   }
@@ -242,6 +258,8 @@ export function DeveloperPage() {
   const [sdkSection, setSdkSection] = useState("transaction");
   const [sdkKeyId, setSdkKeyId] = useState("");
   const [sdkGatewayId, setSdkGatewayId] = useState("");
+  const [testingWebhookId, setTestingWebhookId] = useState(null);
+  const [testResult, setTestResult] = useState({});
 
   useEffect(() => {
     dispatch(fetchDeveloperData());
@@ -323,6 +341,20 @@ export function DeveloperPage() {
     dispatch(deleteWebhook(id));
   };
 
+  const handleTestWebhook = async (id) => {
+    setTestingWebhookId(id);
+    setTestResult((prev) => ({ ...prev, [id]: null }));
+    try {
+      const result = await webhooksApi.test(id);
+      const ok = result?.statusCode >= 200 && result?.statusCode < 300;
+      setTestResult((prev) => ({ ...prev, [id]: { ok, code: result?.statusCode ?? "—" } }));
+    } catch (err) {
+      setTestResult((prev) => ({ ...prev, [id]: { ok: false, code: "ERR", message: err.message } }));
+    } finally {
+      setTestingWebhookId(null);
+    }
+  };
+
   const selectedKey = keys.find((item) => item.id === sdkKeyId) ?? null;
   const selectedGateway = gateways.find((item) => item.id === sdkGatewayId) ?? null;
   const snippets = buildSdkSnippets({
@@ -333,15 +365,15 @@ export function DeveloperPage() {
 
   return (
     <AppLayout>
-      <div className="p-8 max-w-7xl mx-auto space-y-8">
+      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 lg:space-y-8">
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-4">
             <p className="text-sm font-bold text-red-600">{error}</p>
           </div>
         )}
 
-        <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
-          <div className="flex justify-between items-center mb-8">
+        <div className="bg-white p-5 sm:p-8 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="flex flex-wrap items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8">
             <div>
               <h3 className="text-xl font-bold text-[#1A1A1A]">API Keys</h3>
               <p className="text-sm text-gray-500 font-medium">Manage your secret keys for API access</p>
@@ -437,8 +469,8 @@ export function DeveloperPage() {
           )}
         </div>
 
-        <div className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm">
-          <div className="flex justify-between items-center mb-8">
+        <div className="bg-white p-5 sm:p-8 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="flex flex-wrap items-start sm:items-center justify-between gap-4 mb-6 sm:mb-8">
             <div>
               <h3 className="text-xl font-bold text-[#1A1A1A]">Webhooks</h3>
               <p className="text-sm text-gray-500 font-medium">Configure event notifications for your endpoints</p>
@@ -465,44 +497,59 @@ export function DeveloperPage() {
           ) : webhooks.length === 0 ? (
             <p className="text-sm text-gray-400 text-center py-8">No webhook endpoints yet.</p>
           ) : (
-            <table className="w-full text-sm text-left">
+            <table className="w-full text-sm text-left min-w-[480px]">
               <thead className="bg-gray-50 text-gray-500 font-semibold border-b border-gray-100">
                 <tr>
-                  <th className="px-6 py-4">URL</th>
-                  <th className="px-6 py-4">Events</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Created</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                  <th className="px-4 sm:px-6 py-3">URL</th>
+                  <th className="px-4 sm:px-6 py-3 hidden sm:table-cell">Events</th>
+                  <th className="px-4 sm:px-6 py-3">Status</th>
+                  <th className="px-4 sm:px-6 py-3 hidden md:table-cell">Created</th>
+                  <th className="px-4 sm:px-6 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {webhooks.map((webhook) => (
                   <tr key={webhook.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-5 font-mono text-gray-600 font-medium text-xs max-w-xs truncate">{webhook.url}</td>
-                    <td className="px-6 py-5">
+                    <td className="px-4 sm:px-6 py-4 font-mono text-gray-600 font-medium text-xs max-w-[140px] sm:max-w-xs truncate">{webhook.url}</td>
+                    <td className="px-4 sm:px-6 py-4 hidden sm:table-cell">
                       <div className="flex flex-wrap gap-1">
-                        {(webhook.events ?? []).slice(0, 3).map((event) => (
+                        {(webhook.events ?? []).slice(0, 2).map((event) => (
                           <span key={event} className="px-2 py-0.5 bg-gray-100 rounded-md text-xs font-bold text-gray-700">{event}</span>
                         ))}
-                        {webhook.events?.length > 3 && (
-                          <span className="px-2 py-0.5 bg-gray-100 rounded-md text-xs font-bold text-gray-500">+{webhook.events.length - 3}</span>
+                        {webhook.events?.length > 2 && (
+                          <span className="px-2 py-0.5 bg-gray-100 rounded-md text-xs font-bold text-gray-500">+{webhook.events.length - 2}</span>
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-5">
-                      <span className={`font-bold text-sm ${webhook.isActive ? "text-[#22C55E]" : "text-gray-400"}`}>
-                        {webhook.isActive ? "Enabled" : "Disabled"}
+                    <td className="px-4 sm:px-6 py-4">
+                      <span className={`font-bold text-xs sm:text-sm ${webhook.isActive ? "text-[#22C55E]" : "text-gray-400"}`}>
+                        {webhook.isActive ? "On" : "Off"}
                       </span>
                     </td>
-                    <td className="px-6 py-5 text-gray-500 font-medium text-xs">{new Date(webhook.createdAt).toLocaleDateString()}</td>
-                    <td className="px-6 py-5 text-right">
-                      <button
-                        onClick={() => handleDeleteWebhook(webhook.id)}
-                        disabled={deletingWebhookId === webhook.id}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
-                      >
-                        {deletingWebhookId === webhook.id ? <Loader2Icon className="w-4 h-4 animate-spin" /> : <Trash2Icon className="w-4 h-4" />}
-                      </button>
+                    <td className="px-4 sm:px-6 py-4 text-gray-500 font-medium text-xs hidden md:table-cell">{new Date(webhook.createdAt).toLocaleDateString()}</td>
+                    <td className="px-4 sm:px-6 py-4 text-right">
+                      <div className="flex items-center gap-1 justify-end">
+                        <button
+                          onClick={() => handleTestWebhook(webhook.id)}
+                          disabled={testingWebhookId === webhook.id}
+                          title="Send test event"
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#5a8a00] hover:bg-[#C5E63D]/20 rounded-lg transition-colors disabled:opacity-40"
+                        >
+                          {testingWebhookId === webhook.id ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <ZapIcon className="w-3.5 h-3.5" />}
+                          {testResult[webhook.id] != null ? (
+                            <span className={testResult[webhook.id].ok ? "text-green-600" : "text-red-600"}>
+                              {testResult[webhook.id].ok ? `${testResult[webhook.id].code} OK` : `${testResult[webhook.id].code} Fail`}
+                            </span>
+                          ) : "Test"}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteWebhook(webhook.id)}
+                          disabled={deletingWebhookId === webhook.id}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
+                        >
+                          {deletingWebhookId === webhook.id ? <Loader2Icon className="w-4 h-4 animate-spin" /> : <Trash2Icon className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -524,7 +571,7 @@ export function DeveloperPage() {
             </div>
           </div>
 
-          <div className="p-8 space-y-6">
+          <div className="p-5 sm:p-8 space-y-6">
             <div className="flex flex-col xl:flex-row gap-4 xl:items-center xl:justify-between">
               <div className="flex flex-wrap gap-2">
                 {SDK_LANGUAGES.map((item) => (
@@ -571,7 +618,7 @@ export function DeveloperPage() {
               </div>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
               <div className="bg-white/5 border border-white/10 rounded-2xl p-4">
                 <p className="text-xs uppercase tracking-wide text-gray-400 font-bold mb-2">Auth Mode</p>
                 <p className="text-sm text-white font-bold">Bearer API Key</p>
