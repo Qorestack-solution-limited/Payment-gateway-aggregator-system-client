@@ -13,10 +13,11 @@ services:
       - key: CLIENT_URL
         value: https://payorchestra-web.onrender.com
       - key: JWT_SECRET
-          sync: false
+        sync: false
 
-  - type: static
+  - type: web
     name: payorchestra-web
+    runtime: static
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
     routes:
