@@ -1,5 +1,5 @@
 import { Gateway } from '@prisma/client';
-import { GatewaySyncOptions, InitializedPayment, PaymentGatewayAdapter, SyncedGatewayTransaction, VerifiedPayment } from '../payment-gateway.types';
+import { GatewaySyncOptions, InitializedPayment, PaymentGatewayAdapter, RefundResult, SyncedGatewayTransaction, VerifiedPayment } from '../payment-gateway.types';
 export declare class PaystackAdapter implements PaymentGatewayAdapter {
     readonly provider: "PAYSTACK";
     private readonly baseUrl;
@@ -16,6 +16,7 @@ export declare class PaystackAdapter implements PaymentGatewayAdapter {
     }): Promise<InitializedPayment>;
     verifyPayment(gateway: Gateway, reference: string): Promise<VerifiedPayment>;
     fetchTransactions(gateway: Gateway, options?: GatewaySyncOptions): Promise<SyncedGatewayTransaction[]>;
+    refundPayment(gateway: Gateway, transactionId: string, amount?: number): Promise<RefundResult>;
     validateConfiguration(gateway: Gateway): Promise<{
         ok: boolean;
         message: string;

@@ -17,12 +17,16 @@ const crypto_1 = require("crypto");
 const webhooks_service_1 = require("../webhooks/webhooks.service");
 const payment_gateway_registry_1 = require("../payments/payment-gateway.registry");
 const gateway_credentials_service_1 = require("../payments/gateway-credentials.service");
+const events_bus_service_1 = require("../events/events-bus.service");
+const routing_service_1 = require("../routing/routing.service");
 let TransactionsService = class TransactionsService {
-    constructor(prisma, webhooks, gateways, credentials) {
+    constructor(prisma, webhooks, gateways, credentials, eventsBus, routing) {
         this.prisma = prisma;
         this.webhooks = webhooks;
         this.gateways = gateways;
         this.credentials = credentials;
+        this.eventsBus = eventsBus;
+        this.routing = routing;
     }
     hashRequest(orgId, dto) {
         return (0, crypto_1.createHash)('sha256').update(JSON.stringify({ orgId, dto })).digest('hex');
@@ -152,8 +156,12 @@ let TransactionsService = class TransactionsService {
                 return existing.response;
             }
         }
+        const resolvedGatewayId = dto.gatewayId
+            || await this.routing.resolveGateway(orgId, { amount: dto.amount, currency: dto.currency });
+        if (!resolvedGatewayId)
+            throw new common_1.NotFoundException('No active gateway available for this transaction');
         const gateway = await this.prisma.gateway.findFirst({
-            where: { id: dto.gatewayId, organizationId: orgId, status: client_1.GatewayStatus.ACTIVE },
+            where: { id: resolvedGatewayId, organizationId: orgId, status: client_1.GatewayStatus.ACTIVE },
         });
         if (!gateway)
             throw new common_1.NotFoundException('Gateway not found');
@@ -207,6 +215,7 @@ let TransactionsService = class TransactionsService {
             });
         }
         await this.webhooks.dispatchEvent(orgId, 'payment.created', created);
+        this.eventsBus.emit({ type: 'transaction.created', orgId, data: { transaction: created } });
         return {
             ...created,
             checkoutUrl: initialized.checkoutUrl,
@@ -248,6 +257,7 @@ let TransactionsService = class TransactionsService {
             previousStatus: tx.status,
             transaction: updated,
         });
+        this.eventsBus.emit({ type: 'transaction.updated', orgId, data: { transaction: updated } });
         return updated;
     }
     async updateStatus(id, orgId, status) {
@@ -259,6 +269,30 @@ let TransactionsService = class TransactionsService {
         });
         return updated;
     }
+    async refund(id, orgId, amount) {
+        const tx = await this.findOne(id, orgId);
+        if (tx.status !== client_1.TransactionStatus.SUCCESS) {
+            throw new Error('Only successful transactions can be refunded');
+        }
+        const hydratedGateway = this.credentials.hydrateGateway(tx.gateway);
+        const adapter = this.gateways.forGateway(hydratedGateway);
+        const refundId = tx.providerTransactionId || tx.providerReference || tx.reference;
+        const result = await adapter.refundPayment(hydratedGateway, refundId, amount);
+        const updated = await this.prisma.transaction.update({
+            where: { id },
+            data: {
+                status: client_1.TransactionStatus.REFUNDED,
+                refundId: result.refundId,
+                providerStatus: result.status,
+            },
+            include: { gateway: true },
+        });
+        await this.webhooks.dispatchEvent(orgId, 'payment.refunded', {
+            transaction: updated,
+            refund: result,
+        });
+        return { transaction: updated, refund: result };
+    }
 };
 exports.TransactionsService = TransactionsService;
 exports.TransactionsService = TransactionsService = __decorate([
@@ -266,7 +300,9 @@ exports.TransactionsService = TransactionsService = __decorate([
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         webhooks_service_1.WebhooksService,
         payment_gateway_registry_1.PaymentGatewayRegistry,
-        gateway_credentials_service_1.GatewayCredentialsService])
+        gateway_credentials_service_1.GatewayCredentialsService,
+        events_bus_service_1.EventsBusService,
+        routing_service_1.RoutingService])
 ], TransactionsService);
 function cryptoRandomReference() {
     return `txn_${Math.random().toString(36).slice(2, 12)}${Date.now().toString(36)}`;

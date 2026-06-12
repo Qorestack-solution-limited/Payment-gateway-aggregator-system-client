@@ -174,11 +174,12 @@ export const transactionsApi = {
     ).toString();
     return api.download(`/transactions/export${qs ? `?${qs}` : ""}`);
   },
-  get:          (id)         => api.get(`/transactions/${id}`),
-  getByReference:(reference) => api.get(`/transactions/reference/${reference}`),
-  create:       (data)       => api.post("/transactions", data),
-  verify:       (id)         => api.post(`/transactions/${id}/verify`, {}),
-  updateStatus: (id, status) => api.patch(`/transactions/${id}/status`, { status }),
+  get:          (id)            => api.get(`/transactions/${id}`),
+  getByReference:(reference)    => api.get(`/transactions/reference/${reference}`),
+  create:       (data)          => api.post("/transactions", data),
+  verify:       (id)            => api.post(`/transactions/${id}/verify`, {}),
+  updateStatus: (id, status)    => api.patch(`/transactions/${id}/status`, { status }),
+  refund:       (id, amount)    => api.post(`/transactions/${id}/refund`, amount != null ? { amount } : {}),
 };
 
 // ─── Gateways ─────────────────────────────────────────────────────────────────
@@ -213,12 +214,13 @@ export const apiKeysApi = {
 
 // ─── Webhooks ─────────────────────────────────────────────────────────────────
 export const webhooksApi = {
-  list:       ()          => api.get("/webhooks"),
-  create:     (data)      => api.post("/webhooks", data),
-  update:     (id, data)  => api.patch(`/webhooks/${id}`, data),
-  remove:     (id)        => api.delete(`/webhooks/${id}`),
-  deliveries: (id)        => api.get(`/webhooks/${id}/deliveries`),
-  test:       (id)        => api.post(`/webhooks/${id}/test`, {}),
+  list:          ()           => api.get("/webhooks"),
+  create:        (data)       => api.post("/webhooks", data),
+  update:        (id, data)   => api.patch(`/webhooks/${id}`, data),
+  remove:        (id)         => api.delete(`/webhooks/${id}`),
+  deliveries:    (id)         => api.get(`/webhooks/${id}/deliveries`),
+  test:          (id)         => api.post(`/webhooks/${id}/test`, {}),
+  retryDelivery: (deliveryId) => api.post(`/webhooks/deliveries/${deliveryId}/retry`, {}),
 };
 
 // ─── Notifications ────────────────────────────────────────────────────────────
@@ -239,4 +241,25 @@ export const organizationApi = {
   members:       ()      => api.get("/users/organization/members"),
   updatePlan:    (plan)  => api.patch("/users/me/organization", { plan }),
   updateProfile: (data)  => api.patch("/users/me/organization/profile", data),
+};
+
+// ─── Customers ────────────────────────────────────────────────────────────────
+export const customersApi = {
+  list:    (search)  => api.get(`/customers${search ? `?search=${encodeURIComponent(search)}` : ""}`),
+  getOne:  (email)   => api.get(`/customers/${encodeURIComponent(email)}`),
+};
+
+// ─── Audit log ────────────────────────────────────────────────────────────────
+export const auditApi = {
+  list: (params = {}) => {
+    const qs = new URLSearchParams(
+      Object.fromEntries(Object.entries(params).filter(([, v]) => v !== "" && v != null))
+    ).toString();
+    return api.get(`/audit${qs ? `?${qs}` : ""}`);
+  },
+};
+
+// ─── Notification preferences ─────────────────────────────────────────────────
+export const notifPrefsApi = {
+  save: (prefs) => api.patch("/users/me/notification-preferences", prefs),
 };

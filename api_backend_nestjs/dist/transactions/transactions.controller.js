@@ -49,6 +49,9 @@ let TransactionsController = class TransactionsController {
     updateStatus(id, orgId, status) {
         return this.txs.updateStatus(id, orgId, status);
     }
+    refund(id, orgId, amount) {
+        return this.txs.refund(id, orgId, amount);
+    }
 };
 exports.TransactionsController = TransactionsController;
 __decorate([
@@ -123,6 +126,18 @@ __decorate([
     __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", void 0)
 ], TransactionsController.prototype, "updateStatus", null);
+__decorate([
+    (0, common_1.Post)(':id/refund'),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, common_1.HttpCode)(200),
+    (0, swagger_1.ApiOperation)({ summary: 'Refund a transaction via the payment provider' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, get_user_decorator_1.GetUser)('organizationId')),
+    __param(2, (0, common_1.Body)('amount')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, Number]),
+    __metadata("design:returntype", void 0)
+], TransactionsController.prototype, "refund", null);
 exports.TransactionsController = TransactionsController = __decorate([
     (0, swagger_1.ApiTags)('Transactions'),
     (0, swagger_1.ApiBearerAuth)(),

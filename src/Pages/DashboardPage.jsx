@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef, useState } from "react";
 import {
   ArrowUpRightIcon, ArrowDownRightIcon, CreditCardIcon, UsersIcon,
   ActivityIcon, MoreHorizontalIcon, CheckCircle2Icon, XCircleIcon, ClockIcon,
@@ -35,8 +35,45 @@ export function DashboardPage() {
   const loading  = useSelector(selectDashboardLoading);
   const error    = useSelector(selectDashboardError);
 
+  const [liveIndicator, setLiveIndicator] = useState(false);
+  const sseRef = useRef(null);
+  const flashRef = useRef(null);
+
   const load = useCallback(() => { dispatch(fetchDashboardData()); }, [dispatch]);
   useEffect(() => { load(); }, [load]);
+
+  // SSE: subscribe to real-time transaction events
+  useEffect(() => {
+    const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api/v1";
+    const token = localStorage.getItem("payToken");
+    if (!token) return;
+
+    const url = `${BASE_URL}/dashboard/events`;
+    const es = new EventSource(`${url}?token=${token}`);
+    sseRef.current = es;
+
+    es.onmessage = (e) => {
+      try {
+        const event = JSON.parse(e.data);
+        if (event?.type === "transaction.created" || event?.type === "transaction.updated") {
+          // Flash live indicator, then refresh dashboard data
+          setLiveIndicator(true);
+          clearTimeout(flashRef.current);
+          flashRef.current = setTimeout(() => setLiveIndicator(false), 3000);
+          dispatch(fetchDashboardData());
+        }
+      } catch { /* ignore parse errors */ }
+    };
+
+    es.onerror = () => {
+      es.close();
+    };
+
+    return () => {
+      es.close();
+      clearTimeout(flashRef.current);
+    };
+  }, [dispatch]);
 
   const stats     = overview?.stats;
   const gateways  = overview?.gatewayPerformance ?? [];
@@ -60,6 +97,18 @@ export function DashboardPage() {
   return (
     <AppLayout>
       <div className="p-4 sm:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto">
+
+        {/* Live indicator */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg sm:text-xl font-bold text-[#1A1A1A]">Overview</h2>
+            <p className="text-sm text-gray-500 font-medium">Your payment operations at a glance</p>
+          </div>
+          <div className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full transition-colors ${liveIndicator ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400"}`}>
+            <span className={`w-2 h-2 rounded-full ${liveIndicator ? "bg-green-500 animate-pulse" : "bg-gray-300"}`} />
+            {liveIndicator ? "Live update" : "Live"}
+          </div>
+        </div>
 
         {error && (
           <div className="flex items-center justify-between bg-red-50 border border-red-200 rounded-xl px-4 py-3">

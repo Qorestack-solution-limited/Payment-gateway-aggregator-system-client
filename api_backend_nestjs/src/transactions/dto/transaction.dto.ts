@@ -8,7 +8,7 @@ export class CreateTransactionDto {
   @ApiPropertyOptional() @IsString() @IsOptional() currency?: string;
   @ApiProperty() @IsString() @IsNotEmpty() customerName: string;
   @ApiProperty() @IsEmail() customerEmail: string;
-  @ApiProperty() @IsString() @IsNotEmpty() gatewayId: string;
+  @ApiPropertyOptional() @IsString() @IsOptional() gatewayId?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() description?: string;
   @ApiPropertyOptional() @IsString() @IsOptional() reference?: string;
   @ApiPropertyOptional() @IsObject() @IsOptional() metadata?: Record<string, unknown>;

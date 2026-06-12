@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   LayoutDashboardIcon, ArrowLeftRightIcon, NetworkIcon,
   BarChart3Icon, Code2Icon, SettingsIcon, HelpCircleIcon, LogOutIcon,
+  UsersIcon, LinkIcon, SplitIcon, BanknoteIcon,
 } from "lucide-react";
 import { selectUser, logoutSuccess } from "../store/slices/authSlice";
 import {
@@ -34,12 +35,16 @@ export function AppSidebar({ isOpen = false, onClose = () => {} }) {
   };
 
   const navItems = [
-    { to: "/dashboard",    label: "Dashboard",    icon: LayoutDashboardIcon, badge: null },
-    { to: "/transactions", label: "Transactions", icon: ArrowLeftRightIcon,  badge: pendingCount },
-    { to: "/gateways",     label: "Gateways",     icon: NetworkIcon,         badge: null },
-    { to: "/analytics",    label: "Analytics",    icon: BarChart3Icon,       badge: null },
-    { to: "/developer",    label: "Developer",    icon: Code2Icon,           badge: null },
-    { to: "/settings",     label: "Settings",     icon: SettingsIcon,        badge: null },
+    { to: "/dashboard",     label: "Dashboard",      icon: LayoutDashboardIcon, badge: null },
+    { to: "/transactions",  label: "Transactions",   icon: ArrowLeftRightIcon,  badge: pendingCount },
+    { to: "/customers",     label: "Customers",      icon: UsersIcon,           badge: null },
+    { to: "/payment-links", label: "Payment Links",  icon: LinkIcon,            badge: null },
+    { to: "/gateways",      label: "Gateways",       icon: NetworkIcon,         badge: null },
+    { to: "/routing",       label: "Routing",        icon: SplitIcon,           badge: null },
+    { to: "/settlements",   label: "Settlements",    icon: BanknoteIcon,        badge: null },
+    { to: "/analytics",     label: "Analytics",      icon: BarChart3Icon,       badge: null },
+    { to: "/developer",     label: "Developer",      icon: Code2Icon,           badge: null },
+    { to: "/settings",      label: "Settings",       icon: SettingsIcon,        badge: null },
   ];
 
   return (

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Param, Patch, Post, Query, Res, UseGuards, HttpStatus } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiBearerAuth, ApiTags, ApiOperation } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -75,5 +75,17 @@ export class TransactionsController {
     @Body('status') status: TransactionStatus,
   ) {
     return this.txs.updateStatus(id, orgId, status);
+  }
+
+  @Post(':id/refund')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Refund a transaction via the payment provider' })
+  refund(
+    @Param('id') id: string,
+    @GetUser('organizationId') orgId: string,
+    @Body('amount') amount?: number,
+  ) {
+    return this.txs.refund(id, orgId, amount);
   }
 }

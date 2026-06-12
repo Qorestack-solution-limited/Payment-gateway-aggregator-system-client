@@ -1,3 +1,4 @@
+import { AuditService } from '../audit/audit.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateGatewayDto, SyncGatewayTransactionsDto, UpdateGatewayDto } from './dto/gateway.dto';
 import { PaymentGatewayRegistry } from '../payments/payment-gateway.registry';
@@ -8,7 +9,8 @@ export declare class GatewaysService {
     private registry;
     private credentials;
     private webhooks;
-    constructor(prisma: PrismaService, registry: PaymentGatewayRegistry, credentials: GatewayCredentialsService, webhooks: WebhooksService);
+    private audit;
+    constructor(prisma: PrismaService, registry: PaymentGatewayRegistry, credentials: GatewayCredentialsService, webhooks: WebhooksService, audit: AuditService);
     private assertOwnership;
     private serializeGateway;
     findAll(orgId: string): Promise<any[]>;
@@ -16,35 +18,35 @@ export declare class GatewaysService {
     getWebhookEvents(id: string, orgId: string): Promise<({
         transaction: {
             id: string;
-            status: import(".prisma/client").$Enums.TransactionStatus;
             reference: string;
             amount: import("@prisma/client/runtime/library").Decimal;
             currency: string;
+            status: import(".prisma/client").$Enums.TransactionStatus;
         };
     } & {
         event: string;
         id: string;
         organizationId: string | null;
-        provider: import(".prisma/client").$Enums.GatewayProvider;
-        status: string;
         reference: string | null;
+        status: string;
+        gatewayId: string | null;
+        provider: import(".prisma/client").$Enums.GatewayProvider;
+        transactionId: string | null;
         signature: string | null;
         payload: import("@prisma/client/runtime/library").JsonValue | null;
         rawBody: string | null;
         errorMessage: string | null;
-        gatewayId: string | null;
-        transactionId: string | null;
         receivedAt: Date;
     })[]>;
     getSyncRuns(id: string, orgId: string): Promise<{
         id: string;
-        message: string | null;
         organizationId: string;
         status: string;
         gatewayId: string;
         imported: number;
         updated: number;
         totalFetched: number;
+        message: string | null;
         fromDate: string | null;
         toDate: string | null;
         startedAt: Date;
@@ -63,8 +65,8 @@ export declare class GatewaysService {
         message: string;
     }>;
     update(id: string, orgId: string, dto: UpdateGatewayDto): Promise<any>;
-    toggleStatus(id: string, orgId: string): Promise<any>;
-    remove(id: string, orgId: string): Promise<{
+    toggleStatus(id: string, orgId: string, actorId?: string, actorEmail?: string): Promise<any>;
+    remove(id: string, orgId: string, actorId?: string, actorEmail?: string): Promise<{
         message: string;
     }>;
 }

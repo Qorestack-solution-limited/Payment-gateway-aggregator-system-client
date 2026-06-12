@@ -4,6 +4,7 @@ import {
   GatewaySyncOptions,
   InitializedPayment,
   PaymentGatewayAdapter,
+  RefundResult,
   SyncedGatewayTransaction,
   VerifiedPayment,
 } from '../payment-gateway.types';
@@ -227,6 +228,26 @@ export class PayPalAdapter implements PaymentGatewayAdapter {
         raw: item,
       };
     });
+  }
+
+  async refundPayment(gateway: Gateway, transactionId: string, amount?: number): Promise<RefundResult> {
+    const body: Record<string, unknown> = {};
+    if (amount != null) {
+      body.amount = { value: Number(amount).toFixed(2), currency_code: 'USD' };
+    }
+
+    const data = await this.request<any>(gateway, `/v2/payments/captures/${transactionId}/refund`, {
+      method: 'POST',
+      body: JSON.stringify(Object.keys(body).length ? body : {}),
+    });
+
+    return {
+      refundId: data.id ?? transactionId,
+      status: data.status ?? 'PENDING',
+      amount: data.amount?.value ? Number(data.amount.value) : amount,
+      currency: data.amount?.currency_code ?? 'USD',
+      raw: data,
+    };
   }
 
   async validateConfiguration(gateway: Gateway) {

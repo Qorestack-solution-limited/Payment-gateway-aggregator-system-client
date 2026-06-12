@@ -58,6 +58,14 @@ export class UsersService {
     });
   }
 
+  async updateNotificationPreferences(userId: string, prefs: Record<string, boolean>) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { notificationPreferences: prefs },
+    });
+    return { message: 'Notification preferences saved' };
+  }
+
   async updateOrganizationProfile(orgId: string, data: { name?: string; industry?: string; website?: string; companySize?: string }) {
     if (!orgId) throw new ForbiddenException('No organization associated with this account');
     return this.prisma.organization.update({

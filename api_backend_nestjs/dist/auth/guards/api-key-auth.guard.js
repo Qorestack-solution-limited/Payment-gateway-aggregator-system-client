@@ -57,10 +57,10 @@ let ApiKeyAuthGuard = class ApiKeyAuthGuard {
             apiKeyId: apiKey.id,
             authType: 'apiKey',
         };
-        await this.prisma.apiKey.update({
+        this.prisma.apiKey.update({
             where: { id: apiKey.id },
-            data: { lastUsedAt: new Date() },
-        });
+            data: { lastUsedAt: new Date(), requestCount: { increment: 1 } },
+        }).catch(() => { });
         return true;
     }
 };

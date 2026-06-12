@@ -1,14 +1,30 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { TransactionStatus } from '@prisma/client';
+import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 
 @Injectable()
 export class AnalyticsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private fx: ExchangeRatesService,
+  ) {}
+
+  private async getBaseCurrency(orgId: string): Promise<string> {
+    const org = await this.prisma.organization.findUnique({ where: { id: orgId }, select: { baseCurrency: true } });
+    return org?.baseCurrency ?? 'NGN';
+  }
+
+  private normalizeRevenue(txs: any[], baseCurrency: string): number {
+    return txs
+      .filter(t => t.status === TransactionStatus.SUCCESS)
+      .reduce((sum, t) => sum + this.fx.convert(Number(t.amount), t.currency ?? baseCurrency, baseCurrency), 0);
+  }
 
   async getSummary(orgId: string, days = 30) {
     const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     const prevFrom = new Date(Date.now() - days * 2 * 24 * 60 * 60 * 1000);
+    const baseCurrency = await this.getBaseCurrency(orgId);
 
     const [current, previous] = await Promise.all([
       this.prisma.transaction.findMany({ where: { organizationId: orgId, createdAt: { gte: from } } }),
@@ -16,7 +32,7 @@ export class AnalyticsService {
     ]);
 
     const success = (txs: any[]) => txs.filter(t => t.status === TransactionStatus.SUCCESS);
-    const revenue = (txs: any[]) => success(txs).reduce((s, t) => s + Number(t.amount), 0);
+    const revenue = (txs: any[]) => this.normalizeRevenue(txs, baseCurrency);
 
     const currRevenue = revenue(current);
     const prevRevenue = revenue(previous);
@@ -41,6 +57,7 @@ export class AnalyticsService {
 
   async getRevenueChart(orgId: string, days = 30) {
     const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const baseCurrency = await this.getBaseCurrency(orgId);
     const txs = await this.prisma.transaction.findMany({
       where: { organizationId: orgId, status: TransactionStatus.SUCCESS, createdAt: { gte: from } },
       orderBy: { createdAt: 'asc' },
@@ -49,10 +66,11 @@ export class AnalyticsService {
     const grouped: Record<string, number> = {};
     txs.forEach(tx => {
       const day = tx.createdAt.toISOString().split('T')[0];
-      grouped[day] = (grouped[day] ?? 0) + Number(tx.amount);
+      const normalized = this.fx.convert(Number(tx.amount), tx.currency ?? baseCurrency, baseCurrency);
+      grouped[day] = (grouped[day] ?? 0) + normalized;
     });
 
-    return Object.entries(grouped).map(([date, revenue]) => ({ date, revenue }));
+    return Object.entries(grouped).map(([date, revenue]) => ({ date, revenue, currency: baseCurrency }));
   }
 
   async getGatewayBreakdown(orgId: string, days = 30) {

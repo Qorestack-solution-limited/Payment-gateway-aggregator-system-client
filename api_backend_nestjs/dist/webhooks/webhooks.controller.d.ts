@@ -11,46 +11,48 @@ export declare class WebhooksController {
             webhookId: string;
             statusCode: number;
             response: string | null;
+            retryCount: number;
+            nextRetryAt: Date | null;
         }[];
     } & {
-        url: string;
         id: string;
-        createdAt: Date;
-        organizationId: string;
-        updatedAt: Date;
+        url: string;
+        events: string[];
         isActive: boolean;
         secret: string;
-        events: string[];
+        organizationId: string;
+        createdAt: Date;
+        updatedAt: Date;
     })[]>;
     findOne(id: string, orgId: string): Promise<{
-        url: string;
         id: string;
-        createdAt: Date;
-        organizationId: string;
-        updatedAt: Date;
+        url: string;
+        events: string[];
         isActive: boolean;
         secret: string;
-        events: string[];
+        organizationId: string;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     create(orgId: string, dto: CreateWebhookDto): import(".prisma/client").Prisma.Prisma__WebhookClient<{
-        url: string;
         id: string;
-        createdAt: Date;
-        organizationId: string;
-        updatedAt: Date;
+        url: string;
+        events: string[];
         isActive: boolean;
         secret: string;
-        events: string[];
+        organizationId: string;
+        createdAt: Date;
+        updatedAt: Date;
     }, never, import("@prisma/client/runtime/library").DefaultArgs>;
     update(id: string, orgId: string, dto: UpdateWebhookDto): Promise<{
-        url: string;
         id: string;
-        createdAt: Date;
-        organizationId: string;
-        updatedAt: Date;
+        url: string;
+        events: string[];
         isActive: boolean;
         secret: string;
-        events: string[];
+        organizationId: string;
+        createdAt: Date;
+        updatedAt: Date;
     }>;
     remove(id: string, orgId: string): Promise<{
         message: string;
@@ -62,6 +64,8 @@ export declare class WebhooksController {
         webhookId: string;
         statusCode: number;
         response: string | null;
+        retryCount: number;
+        nextRetryAt: Date | null;
     }[]>;
     sendTest(id: string, orgId: string): Promise<{
         event: string;
@@ -70,5 +74,17 @@ export declare class WebhooksController {
         webhookId: string;
         statusCode: number;
         response: string | null;
+        retryCount: number;
+        nextRetryAt: Date | null;
+    }>;
+    retryDelivery(deliveryId: string, orgId: string): Promise<{
+        event: string;
+        id: string;
+        deliveredAt: Date;
+        webhookId: string;
+        statusCode: number;
+        response: string | null;
+        retryCount: number;
+        nextRetryAt: Date | null;
     }>;
 }

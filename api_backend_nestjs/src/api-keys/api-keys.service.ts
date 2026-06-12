@@ -11,8 +11,7 @@ export class ApiKeysService {
     return this.prisma.apiKey.findMany({
       where: { organizationId: orgId },
       orderBy: { createdAt: 'desc' },
-      select: { id: true, name: true, type: true, isActive: true, lastUsedAt: true, createdAt: true,
-        key: true }, // expose masked key only in list
+      select: { id: true, name: true, type: true, isActive: true, lastUsedAt: true, requestCount: true, createdAt: true, key: true },
     });
   }
 

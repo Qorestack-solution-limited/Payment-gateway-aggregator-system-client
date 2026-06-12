@@ -7,35 +7,35 @@ export declare class GatewaysController {
     getWebhookEvents(id: string, orgId: string): Promise<({
         transaction: {
             id: string;
-            status: import(".prisma/client").$Enums.TransactionStatus;
             reference: string;
             amount: import("@prisma/client/runtime/library").Decimal;
             currency: string;
+            status: import(".prisma/client").$Enums.TransactionStatus;
         };
     } & {
         event: string;
         id: string;
         organizationId: string | null;
-        provider: import(".prisma/client").$Enums.GatewayProvider;
-        status: string;
         reference: string | null;
+        status: string;
+        gatewayId: string | null;
+        provider: import(".prisma/client").$Enums.GatewayProvider;
+        transactionId: string | null;
         signature: string | null;
         payload: import("@prisma/client/runtime/library").JsonValue | null;
         rawBody: string | null;
         errorMessage: string | null;
-        gatewayId: string | null;
-        transactionId: string | null;
         receivedAt: Date;
     })[]>;
     getSyncRuns(id: string, orgId: string): Promise<{
         id: string;
-        message: string | null;
         organizationId: string;
         status: string;
         gatewayId: string;
         imported: number;
         updated: number;
         totalFetched: number;
+        message: string | null;
         fromDate: string | null;
         toDate: string | null;
         startedAt: Date;
@@ -44,7 +44,7 @@ export declare class GatewaysController {
     findOne(id: string, orgId: string): Promise<any>;
     create(orgId: string, dto: CreateGatewayDto): Promise<any>;
     update(id: string, orgId: string, dto: UpdateGatewayDto): Promise<any>;
-    toggle(id: string, orgId: string): Promise<any>;
+    toggle(id: string, orgId: string, actorId: string, actorEmail: string): Promise<any>;
     validate(id: string, orgId: string): Promise<{
         ok: boolean;
         message: string;
@@ -56,7 +56,7 @@ export declare class GatewaysController {
         totalFetched: number;
         message: string;
     }>;
-    remove(id: string, orgId: string): Promise<{
+    remove(id: string, orgId: string, actorId: string, actorEmail: string): Promise<{
         message: string;
     }>;
 }

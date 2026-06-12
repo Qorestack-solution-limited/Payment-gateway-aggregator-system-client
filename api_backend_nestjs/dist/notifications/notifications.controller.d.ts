@@ -7,9 +7,9 @@ export declare class NotificationsController {
             type: import(".prisma/client").$Enums.NotificationType;
             title: string;
             id: string;
+            createdAt: Date;
             message: string;
             isRead: boolean;
-            createdAt: Date;
             userId: string;
         }[];
         unreadCount: number;

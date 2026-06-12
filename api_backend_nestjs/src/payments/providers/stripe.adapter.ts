@@ -4,6 +4,7 @@ import {
   GatewaySyncOptions,
   InitializedPayment,
   PaymentGatewayAdapter,
+  RefundResult,
   SyncedGatewayTransaction,
   VerifiedPayment,
 } from '../payment-gateway.types';
@@ -193,6 +194,30 @@ export class StripeAdapter implements PaymentGatewayAdapter {
         raw: item,
       };
     });
+  }
+
+  async refundPayment(gateway: Gateway, transactionId: string, amount?: number): Promise<RefundResult> {
+    const currency = 'usd';
+    const form = this.flattenForm({
+      payment_intent: transactionId,
+      ...(amount != null ? { amount: this.toSmallestUnit(amount, currency) } : {}),
+    });
+
+    const data = await this.request<any>(gateway, '/refunds', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: form.toString(),
+    });
+
+    return {
+      refundId: data.id,
+      status: data.status ?? 'pending',
+      amount: data.amount != null
+        ? Number(data.amount) / (ZERO_DECIMAL_CURRENCIES.has(String(data.currency || '').toLowerCase()) ? 1 : 100)
+        : amount,
+      currency: String(data.currency ?? 'usd').toUpperCase(),
+      raw: data,
+    };
   }
 
   async validateConfiguration(gateway: Gateway) {

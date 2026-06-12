@@ -51,4 +51,11 @@ export class WebhooksController {
   sendTest(@Param('id') id: string, @GetUser('organizationId') orgId: string) {
     return this.webhooks.sendTestEvent(id, orgId);
   }
+
+  @Post('deliveries/:deliveryId/retry')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Manually retry a failed webhook delivery' })
+  retryDelivery(@Param('deliveryId') deliveryId: string, @GetUser('organizationId') orgId: string) {
+    return this.webhooks.retryDelivery(deliveryId, orgId);
+  }
 }

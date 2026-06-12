@@ -64,6 +64,59 @@ let WebhooksService = class WebhooksService {
             take: 50,
         });
     }
+    async retryDelivery(deliveryId, orgId) {
+        const delivery = await this.prisma.webhookDelivery.findUnique({
+            where: { id: deliveryId },
+            include: { webhook: true },
+        });
+        if (!delivery)
+            throw new common_1.NotFoundException('Delivery record not found');
+        if (delivery.webhook.organizationId !== orgId)
+            throw new common_1.ForbiddenException();
+        const testPayload = {
+            id: `evt_retry_${crypto.randomBytes(8).toString('hex')}`,
+            event: delivery.event,
+            retryOf: deliveryId,
+            createdAt: new Date().toISOString(),
+        };
+        await this.deliverWebhook(delivery.webhook, delivery.event, testPayload);
+        return this.prisma.webhookDelivery.findFirst({
+            where: { webhookId: delivery.webhookId },
+            orderBy: { deliveredAt: 'desc' },
+        });
+    }
+    async scheduleFailedRetries() {
+        const due = await this.prisma.webhookDelivery.findMany({
+            where: {
+                statusCode: { notIn: [200, 201, 202, 204] },
+                nextRetryAt: { lte: new Date() },
+                retryCount: { lt: 5 },
+                webhook: { isActive: true },
+            },
+            include: { webhook: true },
+            take: 50,
+        });
+        for (const delivery of due) {
+            if (!delivery.webhook?.isActive)
+                continue;
+            const payload = {
+                id: `evt_autoretry_${crypto.randomBytes(8).toString('hex')}`,
+                event: delivery.event,
+                retryOf: delivery.id,
+                retryCount: delivery.retryCount + 1,
+                createdAt: new Date().toISOString(),
+            };
+            await this.deliverWebhook(delivery.webhook, delivery.event, payload);
+            const backoffMs = Math.min(60_000 * Math.pow(2, delivery.retryCount), 2 * 60 * 60 * 1000);
+            await this.prisma.webhookDelivery.update({
+                where: { id: delivery.id },
+                data: {
+                    retryCount: { increment: 1 },
+                    nextRetryAt: delivery.retryCount + 1 < 5 ? new Date(Date.now() + backoffMs) : null,
+                },
+            });
+        }
+    }
     async sendTestEvent(id, orgId) {
         const webhook = await this.assertOwnership(id, orgId);
         const testPayload = {

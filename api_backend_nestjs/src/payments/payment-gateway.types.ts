@@ -45,6 +45,14 @@ export type SyncedGatewayTransaction = {
   raw: Record<string, unknown>;
 };
 
+export type RefundResult = {
+  refundId: string;
+  status: string;
+  amount?: number;
+  currency?: string;
+  raw: Record<string, unknown>;
+};
+
 export interface PaymentGatewayAdapter {
   readonly provider: GatewayProvider;
   initializePayment(gateway: Gateway, input: {
@@ -57,6 +65,7 @@ export interface PaymentGatewayAdapter {
     metadata?: Record<string, unknown>;
   }): Promise<InitializedPayment>;
   verifyPayment(gateway: Gateway, reference: string): Promise<VerifiedPayment>;
+  refundPayment(gateway: Gateway, transactionId: string, amount?: number): Promise<RefundResult>;
   fetchTransactions(gateway: Gateway, options?: GatewaySyncOptions): Promise<SyncedGatewayTransaction[]>;
   validateConfiguration(gateway: Gateway): Promise<{ ok: boolean; message: string }>;
 }

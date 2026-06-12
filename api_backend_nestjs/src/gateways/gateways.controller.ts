@@ -48,8 +48,13 @@ export class GatewaysController {
 
   @Patch(':id/toggle')
   @ApiOperation({ summary: 'Toggle gateway active/inactive' })
-  toggle(@Param('id') id: string, @GetUser('organizationId') orgId: string) {
-    return this.gateways.toggleStatus(id, orgId);
+  toggle(
+    @Param('id') id: string,
+    @GetUser('organizationId') orgId: string,
+    @GetUser('id') actorId: string,
+    @GetUser('email') actorEmail: string,
+  ) {
+    return this.gateways.toggleStatus(id, orgId, actorId, actorEmail);
   }
 
   @Post(':id/validate')
@@ -69,7 +74,12 @@ export class GatewaysController {
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @GetUser('organizationId') orgId: string) {
-    return this.gateways.remove(id, orgId);
+  remove(
+    @Param('id') id: string,
+    @GetUser('organizationId') orgId: string,
+    @GetUser('id') actorId: string,
+    @GetUser('email') actorEmail: string,
+  ) {
+    return this.gateways.remove(id, orgId, actorId, actorEmail);
   }
 }

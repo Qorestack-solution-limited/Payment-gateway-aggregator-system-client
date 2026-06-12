@@ -1,4 +1,6 @@
 import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { AuditService } from '../audit/audit.service';
+import { AuditAction } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateGatewayDto, SyncGatewayTransactionsDto, UpdateGatewayDto } from './dto/gateway.dto';
 import { GatewayStatus, TransactionStatus } from '@prisma/client';
@@ -13,6 +15,7 @@ export class GatewaysService {
     private registry: PaymentGatewayRegistry,
     private credentials: GatewayCredentialsService,
     private webhooks: WebhooksService,
+    private audit: AuditService,
   ) {}
 
   private async assertOwnership(gatewayId: string, orgId: string) {
@@ -265,17 +268,39 @@ export class GatewaysService {
       .then((gateway) => this.serializeGateway(gateway));
   }
 
-  async toggleStatus(id: string, orgId: string) {
+  async toggleStatus(id: string, orgId: string, actorId?: string, actorEmail?: string) {
     const gw = await this.assertOwnership(id, orgId);
     const next = gw.status === GatewayStatus.ACTIVE ? GatewayStatus.INACTIVE : GatewayStatus.ACTIVE;
-    return this.prisma.gateway
+    const updated = await this.prisma.gateway
       .update({ where: { id }, data: { status: next } })
       .then((gateway) => this.serializeGateway(gateway));
+
+    if (actorId && actorEmail) {
+      this.audit.log({
+        action: AuditAction.GATEWAY_TOGGLED,
+        actorId, actorEmail, organizationId: orgId,
+        resourceType: 'gateway', resourceId: id,
+        description: `Gateway "${gw.name}" toggled to ${next}`,
+        before: { status: gw.status }, after: { status: next },
+      }).catch(() => {});
+    }
+
+    return updated;
   }
 
-  async remove(id: string, orgId: string) {
-    await this.assertOwnership(id, orgId);
+  async remove(id: string, orgId: string, actorId?: string, actorEmail?: string) {
+    const gw = await this.assertOwnership(id, orgId);
     await this.prisma.gateway.delete({ where: { id } });
+
+    if (actorId && actorEmail) {
+      this.audit.log({
+        action: AuditAction.GATEWAY_DELETED,
+        actorId, actorEmail, organizationId: orgId,
+        resourceType: 'gateway', resourceId: id,
+        description: `Gateway "${gw.name}" deleted`,
+      }).catch(() => {});
+    }
+
     return { message: 'Gateway removed' };
   }
 }

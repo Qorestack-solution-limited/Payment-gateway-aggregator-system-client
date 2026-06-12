@@ -6,6 +6,8 @@ import { createHash } from 'crypto';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { PaymentGatewayRegistry } from '../payments/payment-gateway.registry';
 import { GatewayCredentialsService } from '../payments/gateway-credentials.service';
+import { EventsBusService } from '../events/events-bus.service';
+import { RoutingService } from '../routing/routing.service';
 
 @Injectable()
 export class TransactionsService {
@@ -14,6 +16,8 @@ export class TransactionsService {
     private webhooks: WebhooksService,
     private gateways: PaymentGatewayRegistry,
     private credentials: GatewayCredentialsService,
+    private eventsBus: EventsBusService,
+    private routing: RoutingService,
   ) {}
 
   private hashRequest(orgId: string, dto: CreateTransactionDto) {
@@ -146,8 +150,14 @@ export class TransactionsService {
       }
     }
 
+    // If no gatewayId provided, resolve via routing rules
+    const resolvedGatewayId = dto.gatewayId
+      || await this.routing.resolveGateway(orgId, { amount: dto.amount, currency: dto.currency });
+
+    if (!resolvedGatewayId) throw new NotFoundException('No active gateway available for this transaction');
+
     const gateway = await this.prisma.gateway.findFirst({
-      where: { id: dto.gatewayId, organizationId: orgId, status: GatewayStatus.ACTIVE },
+      where: { id: resolvedGatewayId, organizationId: orgId, status: GatewayStatus.ACTIVE },
     });
     if (!gateway) throw new NotFoundException('Gateway not found');
 
@@ -205,6 +215,8 @@ export class TransactionsService {
 
     await this.webhooks.dispatchEvent(orgId, 'payment.created', created);
 
+    this.eventsBus.emit({ type: 'transaction.created', orgId, data: { transaction: created } });
+
     return {
       ...created,
       checkoutUrl: initialized.checkoutUrl,
@@ -251,6 +263,8 @@ export class TransactionsService {
       transaction: updated,
     });
 
+    this.eventsBus.emit({ type: 'transaction.updated', orgId, data: { transaction: updated } });
+
     return updated;
   }
 
@@ -262,6 +276,37 @@ export class TransactionsService {
       transaction: updated,
     });
     return updated;
+  }
+
+  async refund(id: string, orgId: string, amount?: number) {
+    const tx = await this.findOne(id, orgId);
+
+    if (tx.status !== TransactionStatus.SUCCESS) {
+      throw new Error('Only successful transactions can be refunded');
+    }
+
+    const hydratedGateway = this.credentials.hydrateGateway(tx.gateway);
+    const adapter = this.gateways.forGateway(hydratedGateway);
+
+    const refundId = tx.providerTransactionId || tx.providerReference || tx.reference;
+    const result = await adapter.refundPayment(hydratedGateway, refundId, amount);
+
+    const updated = await this.prisma.transaction.update({
+      where: { id },
+      data: {
+        status: TransactionStatus.REFUNDED,
+        refundId: result.refundId,
+        providerStatus: result.status,
+      },
+      include: { gateway: true },
+    });
+
+    await this.webhooks.dispatchEvent(orgId, 'payment.refunded', {
+      transaction: updated,
+      refund: result,
+    });
+
+    return { transaction: updated, refund: result };
   }
 }
 

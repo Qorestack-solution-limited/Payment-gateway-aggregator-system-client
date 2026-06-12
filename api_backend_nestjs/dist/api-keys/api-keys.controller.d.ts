@@ -15,26 +15,29 @@ export declare class ApiKeysController {
         key: string;
         isActive: boolean;
         lastUsedAt: Date;
+        requestCount: number;
     }[]>;
     generate(orgId: string, dto: GenerateKeyDto): Promise<{
         name: string;
         type: import(".prisma/client").$Enums.ApiKeyType;
         id: string;
-        createdAt: Date;
         organizationId: string;
+        createdAt: Date;
         key: string;
         isActive: boolean;
         lastUsedAt: Date | null;
+        requestCount: number;
     }>;
     revoke(id: string, orgId: string): Promise<{
         name: string;
         type: import(".prisma/client").$Enums.ApiKeyType;
         id: string;
-        createdAt: Date;
         organizationId: string;
+        createdAt: Date;
         key: string;
         isActive: boolean;
         lastUsedAt: Date | null;
+        requestCount: number;
     }>;
     remove(id: string, orgId: string): Promise<{
         message: string;

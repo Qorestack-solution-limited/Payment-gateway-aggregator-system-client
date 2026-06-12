@@ -9,6 +9,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
+const schedule_1 = require("@nestjs/schedule");
+const throttler_1 = require("@nestjs/throttler");
+const core_1 = require("@nestjs/core");
 const prisma_module_1 = require("./prisma/prisma.module");
 const auth_module_1 = require("./auth/auth.module");
 const users_module_1 = require("./users/users.module");
@@ -22,6 +25,14 @@ const mail_module_1 = require("./mail/mail.module");
 const notifications_module_1 = require("./notifications/notifications.module");
 const payments_module_1 = require("./payments/payments.module");
 const search_module_1 = require("./search/search.module");
+const customers_module_1 = require("./customers/customers.module");
+const events_bus_module_1 = require("./events/events-bus.module");
+const audit_module_1 = require("./audit/audit.module");
+const sync_scheduler_module_1 = require("./sync-scheduler/sync-scheduler.module");
+const payment_links_module_1 = require("./payment-links/payment-links.module");
+const routing_module_1 = require("./routing/routing.module");
+const settlements_module_1 = require("./settlements/settlements.module");
+const exchange_rates_module_1 = require("./exchange-rates/exchange-rates.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -29,8 +40,17 @@ exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
             config_1.ConfigModule.forRoot({ isGlobal: true }),
+            schedule_1.ScheduleModule.forRoot(),
+            throttler_1.ThrottlerModule.forRoot([
+                { name: 'short', ttl: 1000, limit: 20 },
+                { name: 'medium', ttl: 60000, limit: 200 },
+                { name: 'long', ttl: 3600000, limit: 2000 },
+            ]),
             prisma_module_1.PrismaModule,
             mail_module_1.MailModule,
+            events_bus_module_1.EventsBusModule,
+            audit_module_1.AuditModule,
+            exchange_rates_module_1.ExchangeRatesModule,
             auth_module_1.AuthModule,
             payments_module_1.PaymentsModule,
             users_module_1.UsersModule,
@@ -42,6 +62,14 @@ exports.AppModule = AppModule = __decorate([
             dashboard_module_1.DashboardModule,
             notifications_module_1.NotificationsModule,
             search_module_1.SearchModule,
+            customers_module_1.CustomersModule,
+            sync_scheduler_module_1.SyncSchedulerModule,
+            payment_links_module_1.PaymentLinksModule,
+            routing_module_1.RoutingModule,
+            settlements_module_1.SettlementsModule,
+        ],
+        providers: [
+            { provide: core_1.APP_GUARD, useClass: throttler_1.ThrottlerGuard },
         ],
     })
 ], AppModule);

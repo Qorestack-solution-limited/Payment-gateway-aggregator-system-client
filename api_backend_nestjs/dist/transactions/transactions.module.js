@@ -13,14 +13,16 @@ const transactions_controller_1 = require("./transactions.controller");
 const auth_module_1 = require("../auth/auth.module");
 const webhooks_module_1 = require("../webhooks/webhooks.module");
 const payments_module_1 = require("../payments/payments.module");
+const routing_module_1 = require("../routing/routing.module");
 let TransactionsModule = class TransactionsModule {
 };
 exports.TransactionsModule = TransactionsModule;
 exports.TransactionsModule = TransactionsModule = __decorate([
     (0, common_1.Module)({
-        imports: [auth_module_1.AuthModule, webhooks_module_1.WebhooksModule, payments_module_1.PaymentsModule],
+        imports: [auth_module_1.AuthModule, webhooks_module_1.WebhooksModule, payments_module_1.PaymentsModule, routing_module_1.RoutingModule],
         controllers: [transactions_controller_1.TransactionsController],
         providers: [transactions_service_1.TransactionsService],
+        exports: [transactions_service_1.TransactionsService],
     })
 ], TransactionsModule);
 //# sourceMappingURL=transactions.module.js.map

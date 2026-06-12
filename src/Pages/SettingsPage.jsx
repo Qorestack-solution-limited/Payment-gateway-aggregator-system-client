@@ -15,7 +15,7 @@ import {
   selectPasswordLoading, selectPasswordMessage,
   selectProfileLoading, selectProfileMessage, selectUser,
 } from "../store/slices/authSlice";
-import { organizationApi, twoFactorApi } from "../API/apiClient";
+import { organizationApi, twoFactorApi, notifPrefsApi } from "../API/apiClient";
 
 // ─── Plan config ──────────────────────────────────────────────────────────────
 const PLANS = [
@@ -58,8 +58,7 @@ const PLANS = [
   },
 ];
 
-// ─── Notification prefs stored in localStorage ───────────────────────────────
-const NOTIF_PREFS_KEY = "payNotifPrefs";
+// ─── Notification prefs defaults ─────────────────────────────────────────────
 const DEFAULT_PREFS = {
   emailPayments:   true,
   emailAlerts:     true,
@@ -67,19 +66,6 @@ const DEFAULT_PREFS = {
   inAppPayments:   true,
   inAppAlerts:     true,
 };
-
-function loadPrefs() {
-  try {
-    const raw = localStorage.getItem(NOTIF_PREFS_KEY);
-    return raw ? { ...DEFAULT_PREFS, ...JSON.parse(raw) } : { ...DEFAULT_PREFS };
-  } catch {
-    return { ...DEFAULT_PREFS };
-  }
-}
-
-function savePrefs(prefs) {
-  localStorage.setItem(NOTIF_PREFS_KEY, JSON.stringify(prefs));
-}
 
 // ─── Reusable toggle ──────────────────────────────────────────────────────────
 function Toggle({ checked, onChange }) {
@@ -143,7 +129,8 @@ export function SettingsPage() {
   const [planMsg, setPlanMsg]             = useState(null);
 
   // Notifications
-  const [notifPrefs, setNotifPrefs] = useState(loadPrefs);
+  const [notifPrefs, setNotifPrefs] = useState(DEFAULT_PREFS);
+  const [prefsSaving, setPrefsSaving] = useState(false);
 
   // Team
   const [members, setMembers]         = useState([]);
@@ -162,6 +149,9 @@ export function SettingsPage() {
     setLastName(user.lastName ?? "");
     setEmail(user.email ?? "");
     setSelectedPlan(user.organization?.plan ?? "FREE");
+    if (user.notificationPreferences) {
+      setNotifPrefs({ ...DEFAULT_PREFS, ...user.notificationPreferences });
+    }
     setOrgName(user.organization?.name ?? "");
     setOrgIndustry(user.organization?.industry ?? "");
     setOrgWebsite(user.organization?.website ?? "");
@@ -292,10 +282,15 @@ export function SettingsPage() {
     }
   };
 
-  const handleToggleNotifPref = (key) => {
+  const handleToggleNotifPref = async (key) => {
     const updated = { ...notifPrefs, [key]: !notifPrefs[key] };
     setNotifPrefs(updated);
-    savePrefs(updated);
+    setPrefsSaving(true);
+    try {
+      await notifPrefsApi.save(updated);
+    } catch { /* silent — optimistic update already applied */ } finally {
+      setPrefsSaving(false);
+    }
   };
 
   const initials = `${firstName[0] ?? ""}${lastName[0] ?? ""}`.toUpperCase() || "?";
@@ -675,8 +670,13 @@ export function SettingsPage() {
             {/* ── Notifications ── */}
             {tab === "notifs" && (
               <div className="space-y-5">
+                {prefsSaving && (
+                  <div className="flex items-center gap-2 text-xs font-bold text-gray-400 px-1">
+                    <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> Saving preferences…
+                  </div>
+                )}
                 {/* Email preferences */}
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="bg-white p-5 sm:p-8 rounded-2xl border border-gray-100 shadow-sm">
                   <div className="flex items-center gap-3 mb-5">
                     <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center">
                       <MailIcon className="w-4 h-4 text-blue-500" />
@@ -705,7 +705,7 @@ export function SettingsPage() {
                 </div>
 
                 {/* In-app preferences */}
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="bg-white p-5 sm:p-8 rounded-2xl border border-gray-100 shadow-sm">
                   <div className="flex items-center gap-3 mb-5">
                     <div className="w-9 h-9 rounded-xl bg-[#C5E63D]/20 flex items-center justify-center">
                       <SmartphoneIcon className="w-4 h-4 text-[#5a8a00]" />

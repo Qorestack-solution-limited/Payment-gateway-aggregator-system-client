@@ -41,8 +41,8 @@ let GatewaysController = class GatewaysController {
     update(id, orgId, dto) {
         return this.gateways.update(id, orgId, dto);
     }
-    toggle(id, orgId) {
-        return this.gateways.toggleStatus(id, orgId);
+    toggle(id, orgId, actorId, actorEmail) {
+        return this.gateways.toggleStatus(id, orgId, actorId, actorEmail);
     }
     validate(id, orgId) {
         return this.gateways.validate(id, orgId);
@@ -50,8 +50,8 @@ let GatewaysController = class GatewaysController {
     syncTransactions(id, orgId, dto) {
         return this.gateways.syncTransactions(id, orgId, dto);
     }
-    remove(id, orgId) {
-        return this.gateways.remove(id, orgId);
+    remove(id, orgId, actorId, actorEmail) {
+        return this.gateways.remove(id, orgId, actorId, actorEmail);
     }
 };
 exports.GatewaysController = GatewaysController;
@@ -112,8 +112,10 @@ __decorate([
     (0, swagger_1.ApiOperation)({ summary: 'Toggle gateway active/inactive' }),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, get_user_decorator_1.GetUser)('organizationId')),
+    __param(2, (0, get_user_decorator_1.GetUser)('id')),
+    __param(3, (0, get_user_decorator_1.GetUser)('email')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, String, String]),
     __metadata("design:returntype", void 0)
 ], GatewaysController.prototype, "toggle", null);
 __decorate([
@@ -139,8 +141,10 @@ __decorate([
     (0, common_1.Delete)(':id'),
     __param(0, (0, common_1.Param)('id')),
     __param(1, (0, get_user_decorator_1.GetUser)('organizationId')),
+    __param(2, (0, get_user_decorator_1.GetUser)('id')),
+    __param(3, (0, get_user_decorator_1.GetUser)('email')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, String, String]),
     __metadata("design:returntype", void 0)
 ], GatewaysController.prototype, "remove", null);
 exports.GatewaysController = GatewaysController = __decorate([

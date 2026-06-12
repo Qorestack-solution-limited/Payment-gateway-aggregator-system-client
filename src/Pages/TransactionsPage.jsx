@@ -16,6 +16,7 @@ import {
   CheckIcon,
   PlusIcon,
   DownloadIcon,
+  CornerUpLeftIcon,
 } from "lucide-react";
 import { AppLayout } from "../Components/AppLayout";
 import { LoadingSkeleton } from "../Components/LoadingSkeleton";
@@ -83,6 +84,8 @@ function PaymentModal({ gateways, onClose }) {
     gatewayId: activeGateways[0]?.id ?? "",
   });
   const [localError, setLocalError] = useState("");
+  const [checkoutUrl, setCheckoutUrl] = useState(null);
+  const [createdRef, setCreatedRef] = useState(null);
 
   useEffect(() => {
     if (!form.gatewayId && activeGateways[0]?.id) {
@@ -116,10 +119,56 @@ function PaymentModal({ gateways, onClose }) {
     );
 
     if (createTransaction.fulfilled.match(result)) {
-      onClose();
       dispatch(fetchTransactions());
+      const payload = result.payload;
+      if (payload?.checkoutUrl) {
+        setCheckoutUrl(payload.checkoutUrl);
+        setCreatedRef(payload.reference);
+      } else {
+        onClose();
+      }
     }
   };
+
+  // Checkout URL step — payment is created, redirect customer
+  if (checkoutUrl) {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 text-center">
+          <div className="w-16 h-16 rounded-full bg-[#C5E63D]/20 flex items-center justify-center mx-auto mb-5">
+            <CheckCircle2Icon className="w-8 h-8 text-[#22C55E]" />
+          </div>
+          <h3 className="text-xl font-bold text-[#1A1A1A] mb-2">Payment Ready</h3>
+          <p className="text-sm text-gray-500 font-medium mb-1">Transaction created successfully.</p>
+          {createdRef && <p className="text-xs text-gray-400 font-mono mb-6">{createdRef}</p>}
+          <p className="text-sm text-gray-600 font-medium mb-6">
+            Share the payment link with your customer or open it now to complete the payment.
+          </p>
+          <div className="flex flex-col gap-3">
+            <a
+              href={checkoutUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-[#1A1A1A] text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors">
+              <ArrowRightIcon className="w-4 h-4" />
+              Open Payment Page
+            </a>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(checkoutUrl).catch(() => {});
+              }}
+              className="flex items-center justify-center gap-2 px-6 py-3 border border-gray-200 text-gray-700 rounded-xl text-sm font-bold hover:bg-gray-50 transition-colors">
+              <CopyIcon className="w-4 h-4" />
+              Copy Payment Link
+            </button>
+            <button onClick={onClose} className="text-sm text-gray-400 hover:text-gray-600 font-medium transition-colors">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -235,6 +284,8 @@ function TransactionDrawer({ onClose }) {
   const updatingStatus = useSelector(selectTransactionStatusUpdating);
   const verifyingId = useSelector(selectTransactionVerifyingId);
   const [copied, setCopied] = useState(false);
+  const [refunding, setRefunding] = useState(false);
+  const [refundMsg, setRefundMsg] = useState(null);
 
   const handleCopy = (text) => {
     navigator.clipboard.writeText(text).catch(() => {});
@@ -250,6 +301,21 @@ function TransactionDrawer({ onClose }) {
   const handleVerify = async () => {
     if (!tx) return;
     await dispatch(verifyTransaction(tx.id));
+  };
+
+  const handleRefund = async () => {
+    if (!tx || !window.confirm("Refund this transaction? This will initiate a refund through the payment provider.")) return;
+    setRefunding(true);
+    setRefundMsg(null);
+    try {
+      await transactionsApi.refund(tx.id);
+      setRefundMsg({ ok: true, text: "Refund initiated successfully." });
+      dispatch(fetchTransactionDetail(tx.id));
+    } catch (err) {
+      setRefundMsg({ ok: false, text: err.message || "Refund failed." });
+    } finally {
+      setRefunding(false);
+    }
   };
 
   return (
@@ -389,6 +455,23 @@ function TransactionDrawer({ onClose }) {
                   {verifyingId === tx.id ? <Loader2Icon className="w-4 h-4 animate-spin" /> : <RefreshCwIcon className="w-4 h-4" />}
                   Verify With Gateway
                 </button>
+
+                {tx.status === "SUCCESS" && (
+                  <button
+                    onClick={handleRefund}
+                    disabled={refunding}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 border border-amber-300 text-amber-700 bg-amber-50 rounded-xl text-sm font-bold hover:bg-amber-100 transition-colors disabled:opacity-60"
+                  >
+                    {refunding ? <Loader2Icon className="w-4 h-4 animate-spin" /> : <CornerUpLeftIcon className="w-4 h-4" />}
+                    Refund Transaction
+                  </button>
+                )}
+
+                {refundMsg && (
+                  <div className={`px-4 py-3 rounded-xl text-sm font-bold ${refundMsg.ok ? "bg-green-50 border border-green-200 text-green-700" : "bg-red-50 border border-red-200 text-red-600"}`}>
+                    {refundMsg.text}
+                  </div>
+                )}
               </div>
 
               {tx.status === "PENDING" && (

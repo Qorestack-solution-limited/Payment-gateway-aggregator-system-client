@@ -37,8 +37,8 @@ export declare class DashboardService {
         } & {
             description: string | null;
             id: string;
-            createdAt: Date;
             organizationId: string;
+            createdAt: Date;
             updatedAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
             lastSyncedAt: Date | null;
@@ -50,6 +50,7 @@ export declare class DashboardService {
             currency: string;
             customerName: string;
             customerEmail: string;
+            refundId: string | null;
             gatewayId: string;
             providerPayload: import("@prisma/client/runtime/library").JsonValue | null;
             syncedFromProvider: boolean;

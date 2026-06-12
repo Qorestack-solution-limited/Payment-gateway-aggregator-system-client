@@ -4,7 +4,7 @@ export declare class AnalyticsController {
     constructor(analytics: AnalyticsService);
     summary(orgId: string, days?: string): Promise<{
         revenue: {
-            value: any;
+            value: number;
             change: number;
         };
         transactions: {
@@ -23,6 +23,7 @@ export declare class AnalyticsController {
     revenueChart(orgId: string, days?: string): Promise<{
         date: string;
         revenue: number;
+        currency: string;
     }[]>;
     gatewayBreakdown(orgId: string, days?: string): Promise<{
         name: string;

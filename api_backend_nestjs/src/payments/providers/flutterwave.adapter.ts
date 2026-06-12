@@ -4,6 +4,7 @@ import {
   GatewaySyncOptions,
   InitializedPayment,
   PaymentGatewayAdapter,
+  RefundResult,
   SyncedGatewayTransaction,
   VerifiedPayment,
 } from '../payment-gateway.types';
@@ -139,6 +140,24 @@ export class FlutterwaveAdapter implements PaymentGatewayAdapter {
       metadata: item.meta ?? {},
       raw: item,
     }));
+  }
+
+  async refundPayment(gateway: Gateway, transactionId: string, amount?: number): Promise<RefundResult> {
+    const body: Record<string, unknown> = {};
+    if (amount != null) body.amount = amount;
+
+    const data = await this.request<any>(gateway, `/transactions/${transactionId}/refund`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+
+    return {
+      refundId: String(data.id ?? transactionId),
+      status: data.status ?? 'pending',
+      amount: data.amount_refunded ?? amount,
+      currency: data.currency ?? 'NGN',
+      raw: data,
+    };
   }
 
   async validateConfiguration(gateway: Gateway) {

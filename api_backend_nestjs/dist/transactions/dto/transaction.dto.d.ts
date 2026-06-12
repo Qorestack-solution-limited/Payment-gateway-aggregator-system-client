@@ -4,7 +4,7 @@ export declare class CreateTransactionDto {
     currency?: string;
     customerName: string;
     customerEmail: string;
-    gatewayId: string;
+    gatewayId?: string;
     description?: string;
     reference?: string;
     metadata?: Record<string, unknown>;

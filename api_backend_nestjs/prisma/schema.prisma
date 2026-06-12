@@ -57,6 +57,41 @@ enum NotificationType {
   WARNING
 }
 
+enum RoutingStrategy {
+  PRIORITY
+  SUCCESS_RATE
+  ROUND_ROBIN
+  COST
+}
+
+enum SettlementStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum AuditAction {
+  GATEWAY_CREATED
+  GATEWAY_UPDATED
+  GATEWAY_DELETED
+  GATEWAY_TOGGLED
+  GATEWAY_VALIDATED
+  GATEWAY_SYNCED
+  TRANSACTION_STATUS_UPDATED
+  TRANSACTION_REFUNDED
+  API_KEY_GENERATED
+  API_KEY_REVOKED
+  API_KEY_DELETED
+  WEBHOOK_CREATED
+  WEBHOOK_DELETED
+  PROFILE_UPDATED
+  PASSWORD_CHANGED
+  TWO_FACTOR_ENABLED
+  TWO_FACTOR_DISABLED
+  PLAN_CHANGED
+}
+
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model User {
@@ -69,9 +104,10 @@ model User {
   avatarUrl      String?
   organizationId String?
   organization   Organization?  @relation(fields: [organizationId], references: [id], onDelete: SetNull)
-  twoFactorSecret  String?
-  twoFactorEnabled Boolean        @default(false)
-  refreshTokens    RefreshToken[]
+  twoFactorSecret         String?
+  twoFactorEnabled        Boolean        @default(false)
+  notificationPreferences Json?
+  refreshTokens           RefreshToken[]
   passwordResets   PasswordReset[]
   notifications    Notification[]
   createdAt        DateTime       @default(now())
@@ -87,6 +123,7 @@ model Organization {
   industry             String?
   website              String?
   plan                 Plan                 @default(FREE)
+  baseCurrency         String               @default("NGN")
   users                User[]
   gateways             Gateway[]
   transactions         Transaction[]
@@ -94,6 +131,9 @@ model Organization {
   webhooks             Webhook[]
   providerWebhookEvents ProviderWebhookEvent[]
   gatewaySyncRuns      GatewaySyncRun[]
+  paymentLinks         PaymentLink[]
+  routingRules         RoutingRule[]
+  settlements          Settlement[]
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
 }
@@ -116,6 +156,9 @@ model Gateway {
   transactions         Transaction[]
   providerWebhookEvents ProviderWebhookEvent[]
   syncRuns             GatewaySyncRun[]
+  paymentLinks         PaymentLink[]
+  routingRules         RoutingRule[]
+  settlements          Settlement[]
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
 
@@ -127,6 +170,7 @@ model Transaction {
   reference             String                @unique @default(cuid())
   providerReference     String?
   providerTransactionId String?
+  refundId              String?
   providerStatus        String?
   providerPayload       Json?
   syncedFromProvider    Boolean               @default(false)
@@ -221,6 +265,7 @@ model ApiKey {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   lastUsedAt     DateTime?
+  requestCount   Int        @default(0)
   createdAt      DateTime   @default(now())
 
   @@index([organizationId])
@@ -243,15 +288,18 @@ model Webhook {
 }
 
 model WebhookDelivery {
-  id          String   @id @default(cuid())
-  webhookId   String
-  webhook     Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
-  event       String
-  statusCode  Int
-  response    String?
-  deliveredAt DateTime @default(now())
+  id           String    @id @default(cuid())
+  webhookId    String
+  webhook      Webhook   @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  event        String
+  statusCode   Int
+  response     String?
+  retryCount   Int       @default(0)
+  nextRetryAt  DateTime?
+  deliveredAt  DateTime  @default(now())
 
   @@index([webhookId])
+  @@index([nextRetryAt])
 }
 
 model RefreshToken {
@@ -290,4 +338,92 @@ model Notification {
 
   @@index([userId])
   @@index([isRead])
+}
+
+model AuditLog {
+  id             String      @id @default(cuid())
+  action         AuditAction
+  actorId        String
+  actorEmail     String
+  organizationId String
+  resourceType   String
+  resourceId     String?
+  description    String?
+  before         Json?
+  after          Json?
+  ipAddress      String?
+  createdAt      DateTime    @default(now())
+
+  @@index([organizationId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@index([resourceType])
+}
+
+model PaymentLink {
+  id             String       @id @default(cuid())
+  slug           String       @unique
+  title          String
+  description    String?
+  amount         Decimal?     @db.Decimal(14, 2)
+  currency       String       @default("NGN")
+  isActive       Boolean      @default(true)
+  gatewayId      String?
+  gateway        Gateway?     @relation(fields: [gatewayId], references: [id], onDelete: SetNull)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  redirectUrl    String?
+  maxUses        Int?
+  useCount       Int          @default(0)
+  expiresAt      DateTime?
+  metadata       Json?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([slug])
+}
+
+model RoutingRule {
+  id               String          @id @default(cuid())
+  organizationId   String
+  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name             String
+  priority         Int             @default(0)
+  isActive         Boolean         @default(true)
+  strategy         RoutingStrategy @default(PRIORITY)
+  currency         String?
+  minAmount        Decimal?        @db.Decimal(14, 2)
+  maxAmount        Decimal?        @db.Decimal(14, 2)
+  gatewayId        String?
+  gateway          Gateway?        @relation(fields: [gatewayId], references: [id], onDelete: SetNull)
+  fallbackGatewayId String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([organizationId])
+  @@index([priority])
+}
+
+model Settlement {
+  id                   String           @id @default(cuid())
+  organizationId       String
+  organization         Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  gatewayId            String
+  gateway              Gateway          @relation(fields: [gatewayId], references: [id], onDelete: Cascade)
+  providerSettlementId String?
+  amount               Decimal          @db.Decimal(14, 2)
+  currency             String           @default("NGN")
+  status               SettlementStatus @default(PENDING)
+  bankAccount          String?
+  settledAt            DateTime?
+  expectedAt           DateTime?
+  metadata             Json?
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+
+  @@index([organizationId])
+  @@index([gatewayId])
+  @@index([createdAt])
+  @@index([status])
 }

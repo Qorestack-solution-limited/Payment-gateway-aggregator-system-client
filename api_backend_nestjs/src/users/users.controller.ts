@@ -46,6 +46,15 @@ export class UsersController {
     return this.users.updateOrganizationPlan(orgId, plan);
   }
 
+  @Patch('me/notification-preferences')
+  @ApiOperation({ summary: 'Save notification preferences' })
+  updateNotifPrefs(
+    @GetUser('id') userId: string,
+    @Body() prefs: Record<string, boolean>,
+  ) {
+    return this.users.updateNotificationPreferences(userId, prefs);
+  }
+
   @Patch('me/organization/profile')
   @ApiOperation({ summary: 'Update organization profile (name, industry, website, size)' })
   updateOrgProfile(

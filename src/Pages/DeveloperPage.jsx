@@ -260,6 +260,10 @@ export function DeveloperPage() {
   const [sdkGatewayId, setSdkGatewayId] = useState("");
   const [testingWebhookId, setTestingWebhookId] = useState(null);
   const [testResult, setTestResult] = useState({});
+  const [expandedWebhook, setExpandedWebhook] = useState(null);
+  const [deliveries, setDeliveries] = useState({});
+  const [loadingDeliveries, setLoadingDeliveries] = useState(null);
+  const [retryingDelivery, setRetryingDelivery] = useState(null);
 
   useEffect(() => {
     dispatch(fetchDeveloperData());
@@ -341,6 +345,29 @@ export function DeveloperPage() {
     dispatch(deleteWebhook(id));
   };
 
+  const handleToggleDeliveries = async (webhookId) => {
+    if (expandedWebhook === webhookId) { setExpandedWebhook(null); return; }
+    setExpandedWebhook(webhookId);
+    if (deliveries[webhookId]) return;
+    setLoadingDeliveries(webhookId);
+    try {
+      const data = await webhooksApi.deliveries(webhookId);
+      setDeliveries((prev) => ({ ...prev, [webhookId]: Array.isArray(data) ? data : [] }));
+    } catch { /* silent */ }
+    finally { setLoadingDeliveries(null); }
+  };
+
+  const handleRetryDelivery = async (deliveryId, webhookId) => {
+    setRetryingDelivery(deliveryId);
+    try {
+      await webhooksApi.retryDelivery(deliveryId);
+      // Refresh deliveries for this webhook
+      const data = await webhooksApi.deliveries(webhookId);
+      setDeliveries((prev) => ({ ...prev, [webhookId]: Array.isArray(data) ? data : [] }));
+    } catch { /* silent */ }
+    finally { setRetryingDelivery(null); }
+  };
+
   const handleTestWebhook = async (id) => {
     setTestingWebhookId(id);
     setTestResult((prev) => ({ ...prev, [id]: null }));
@@ -418,7 +445,15 @@ export function DeveloperPage() {
                           <span className="px-2.5 py-0.5 bg-red-100 text-red-700 text-xs rounded-full font-bold">Revoked</span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-500 font-medium">Created {new Date(key.createdAt).toLocaleDateString()}</p>
+                      <div className="flex items-center gap-3 mt-1 flex-wrap">
+                        <p className="text-xs text-gray-400 font-medium">Created {new Date(key.createdAt).toLocaleDateString()}</p>
+                        {key.lastUsedAt && <p className="text-xs text-gray-400 font-medium">Last used {new Date(key.lastUsedAt).toLocaleDateString()}</p>}
+                        {key.requestCount > 0 && (
+                          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">
+                            {key.requestCount.toLocaleString()} requests
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-3 flex-wrap">
                       <code className="px-4 py-2 bg-gray-200 rounded-lg text-sm font-mono text-gray-700">{displayKey}</code>
@@ -509,49 +544,92 @@ export function DeveloperPage() {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {webhooks.map((webhook) => (
-                  <tr key={webhook.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 sm:px-6 py-4 font-mono text-gray-600 font-medium text-xs max-w-[140px] sm:max-w-xs truncate">{webhook.url}</td>
-                    <td className="px-4 sm:px-6 py-4 hidden sm:table-cell">
-                      <div className="flex flex-wrap gap-1">
-                        {(webhook.events ?? []).slice(0, 2).map((event) => (
-                          <span key={event} className="px-2 py-0.5 bg-gray-100 rounded-md text-xs font-bold text-gray-700">{event}</span>
-                        ))}
-                        {webhook.events?.length > 2 && (
-                          <span className="px-2 py-0.5 bg-gray-100 rounded-md text-xs font-bold text-gray-500">+{webhook.events.length - 2}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 sm:px-6 py-4">
-                      <span className={`font-bold text-xs sm:text-sm ${webhook.isActive ? "text-[#22C55E]" : "text-gray-400"}`}>
-                        {webhook.isActive ? "On" : "Off"}
-                      </span>
-                    </td>
-                    <td className="px-4 sm:px-6 py-4 text-gray-500 font-medium text-xs hidden md:table-cell">{new Date(webhook.createdAt).toLocaleDateString()}</td>
-                    <td className="px-4 sm:px-6 py-4 text-right">
-                      <div className="flex items-center gap-1 justify-end">
-                        <button
-                          onClick={() => handleTestWebhook(webhook.id)}
-                          disabled={testingWebhookId === webhook.id}
-                          title="Send test event"
-                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#5a8a00] hover:bg-[#C5E63D]/20 rounded-lg transition-colors disabled:opacity-40"
-                        >
-                          {testingWebhookId === webhook.id ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <ZapIcon className="w-3.5 h-3.5" />}
-                          {testResult[webhook.id] != null ? (
-                            <span className={testResult[webhook.id].ok ? "text-green-600" : "text-red-600"}>
-                              {testResult[webhook.id].ok ? `${testResult[webhook.id].code} OK` : `${testResult[webhook.id].code} Fail`}
-                            </span>
-                          ) : "Test"}
-                        </button>
-                        <button
-                          onClick={() => handleDeleteWebhook(webhook.id)}
-                          disabled={deletingWebhookId === webhook.id}
-                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
-                        >
-                          {deletingWebhookId === webhook.id ? <Loader2Icon className="w-4 h-4 animate-spin" /> : <Trash2Icon className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                  <>
+                    <tr key={webhook.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 sm:px-6 py-4 font-mono text-gray-600 font-medium text-xs max-w-[140px] sm:max-w-xs truncate">{webhook.url}</td>
+                      <td className="px-4 sm:px-6 py-4 hidden sm:table-cell">
+                        <div className="flex flex-wrap gap-1">
+                          {(webhook.events ?? []).slice(0, 2).map((event) => (
+                            <span key={event} className="px-2 py-0.5 bg-gray-100 rounded-md text-xs font-bold text-gray-700">{event}</span>
+                          ))}
+                          {webhook.events?.length > 2 && (
+                            <span className="px-2 py-0.5 bg-gray-100 rounded-md text-xs font-bold text-gray-500">+{webhook.events.length - 2}</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 sm:px-6 py-4">
+                        <span className={`font-bold text-xs sm:text-sm ${webhook.isActive ? "text-[#22C55E]" : "text-gray-400"}`}>
+                          {webhook.isActive ? "On" : "Off"}
+                        </span>
+                      </td>
+                      <td className="px-4 sm:px-6 py-4 text-gray-500 font-medium text-xs hidden md:table-cell">{new Date(webhook.createdAt).toLocaleDateString()}</td>
+                      <td className="px-4 sm:px-6 py-4 text-right">
+                        <div className="flex items-center gap-1 justify-end">
+                          <button
+                            onClick={() => handleTestWebhook(webhook.id)}
+                            disabled={testingWebhookId === webhook.id}
+                            title="Send test event"
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-[#5a8a00] hover:bg-[#C5E63D]/20 rounded-lg transition-colors disabled:opacity-40"
+                          >
+                            {testingWebhookId === webhook.id ? <Loader2Icon className="w-3.5 h-3.5 animate-spin" /> : <ZapIcon className="w-3.5 h-3.5" />}
+                            {testResult[webhook.id] != null ? (
+                              <span className={testResult[webhook.id].ok ? "text-green-600" : "text-red-600"}>
+                                {testResult[webhook.id].ok ? `${testResult[webhook.id].code} OK` : `${testResult[webhook.id].code} Fail`}
+                              </span>
+                            ) : "Test"}
+                          </button>
+                          <button
+                            onClick={() => handleToggleDeliveries(webhook.id)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Delivery history"
+                          >
+                            History {expandedWebhook === webhook.id ? "▲" : "▼"}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteWebhook(webhook.id)}
+                            disabled={deletingWebhookId === webhook.id}
+                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
+                          >
+                            {deletingWebhookId === webhook.id ? <Loader2Icon className="w-4 h-4 animate-spin" /> : <Trash2Icon className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {expandedWebhook === webhook.id && (
+                      <tr>
+                        <td colSpan={5} className="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-100">
+                          {loadingDeliveries === webhook.id ? (
+                            <div className="flex items-center gap-2 text-sm text-gray-400"><Loader2Icon className="w-4 h-4 animate-spin" /> Loading deliveries…</div>
+                          ) : !deliveries[webhook.id]?.length ? (
+                            <p className="text-sm text-gray-400">No deliveries yet.</p>
+                          ) : (
+                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                              {deliveries[webhook.id].map((d) => (
+                                <div key={d.id} className="flex items-center justify-between gap-3 bg-white rounded-xl border border-gray-100 px-3 py-2 text-xs">
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <span className={`font-black shrink-0 ${d.statusCode >= 200 && d.statusCode < 300 ? "text-green-600" : "text-red-600"}`}>
+                                      {d.statusCode === 0 ? "ERR" : d.statusCode}
+                                    </span>
+                                    <span className="font-bold text-gray-600 shrink-0">{d.event}</span>
+                                    <span className="text-gray-400 truncate hidden sm:block">{new Date(d.deliveredAt).toLocaleString()}</span>
+                                  </div>
+                                  {(d.statusCode === 0 || d.statusCode >= 300) && (
+                                    <button
+                                      onClick={() => handleRetryDelivery(d.id, webhook.id)}
+                                      disabled={retryingDelivery === d.id}
+                                      className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors disabled:opacity-60 shrink-0"
+                                    >
+                                      {retryingDelivery === d.id ? <Loader2Icon className="w-3 h-3 animate-spin" /> : "↺"} Retry
+                                    </button>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 ))}
               </tbody>
             </table>

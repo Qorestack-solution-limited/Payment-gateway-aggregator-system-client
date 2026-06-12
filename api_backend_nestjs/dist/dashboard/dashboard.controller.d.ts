@@ -1,7 +1,10 @@
 import { DashboardService } from './dashboard.service';
+import { EventsBusService } from '../events/events-bus.service';
+import { Request, Response } from 'express';
 export declare class DashboardController {
     private dashboard;
-    constructor(dashboard: DashboardService);
+    private events;
+    constructor(dashboard: DashboardService, events: EventsBusService);
     overview(orgId: string): Promise<{
         stats: {
             revenue: {
@@ -37,8 +40,8 @@ export declare class DashboardController {
         } & {
             description: string | null;
             id: string;
-            createdAt: Date;
             organizationId: string;
+            createdAt: Date;
             updatedAt: Date;
             status: import(".prisma/client").$Enums.TransactionStatus;
             lastSyncedAt: Date | null;
@@ -50,6 +53,7 @@ export declare class DashboardController {
             currency: string;
             customerName: string;
             customerEmail: string;
+            refundId: string | null;
             gatewayId: string;
             providerPayload: import("@prisma/client/runtime/library").JsonValue | null;
             syncedFromProvider: boolean;
@@ -60,4 +64,5 @@ export declare class DashboardController {
         date: string;
         revenue: number;
     }[]>;
+    sseEvents(orgId: string, req: Request, res: Response): void;
 }

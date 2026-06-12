@@ -44,6 +44,9 @@ let WebhooksController = class WebhooksController {
     sendTest(id, orgId) {
         return this.webhooks.sendTestEvent(id, orgId);
     }
+    retryDelivery(deliveryId, orgId) {
+        return this.webhooks.retryDelivery(deliveryId, orgId);
+    }
 };
 exports.WebhooksController = WebhooksController;
 __decorate([
@@ -107,6 +110,16 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", void 0)
 ], WebhooksController.prototype, "sendTest", null);
+__decorate([
+    (0, common_1.Post)('deliveries/:deliveryId/retry'),
+    (0, common_1.HttpCode)(200),
+    (0, swagger_1.ApiOperation)({ summary: 'Manually retry a failed webhook delivery' }),
+    __param(0, (0, common_1.Param)('deliveryId')),
+    __param(1, (0, get_user_decorator_1.GetUser)('organizationId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], WebhooksController.prototype, "retryDelivery", null);
 exports.WebhooksController = WebhooksController = __decorate([
     (0, swagger_1.ApiTags)('Webhooks'),
     (0, swagger_1.ApiBearerAuth)(),

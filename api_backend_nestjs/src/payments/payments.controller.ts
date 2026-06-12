@@ -27,4 +27,24 @@ export class PaymentsController {
     const rawBody = request.rawBody?.toString('utf8') ?? JSON.stringify(payload ?? {});
     return this.payments.handleFlutterwaveWebhook(signature, rawBody, payload);
   }
+
+  @Post('webhooks/stripe')
+  handleStripeWebhook(
+    @Headers('stripe-signature') signature: string | undefined,
+    @Req() request: Request & { rawBody?: Buffer },
+    @Body() payload: Record<string, any>,
+  ) {
+    const rawBody = request.rawBody?.toString('utf8') ?? JSON.stringify(payload ?? {});
+    return this.payments.handleStripeWebhook(signature, rawBody, payload);
+  }
+
+  @Post('webhooks/paypal')
+  handlePayPalWebhook(
+    @Headers('paypal-auth-algo') secret: string | undefined,
+    @Req() request: Request & { rawBody?: Buffer },
+    @Body() payload: Record<string, any>,
+  ) {
+    const rawBody = request.rawBody?.toString('utf8') ?? JSON.stringify(payload ?? {});
+    return this.payments.handlePayPalWebhook(secret, rawBody, payload);
+  }
 }

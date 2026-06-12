@@ -14,17 +14,19 @@ export declare class UsersService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            baseCurrency: string;
         };
         firstName: string;
         lastName: string;
         email: string;
         id: string;
-        createdAt: Date;
         role: import(".prisma/client").$Enums.Role;
         avatarUrl: string | null;
         organizationId: string | null;
         twoFactorSecret: string | null;
         twoFactorEnabled: boolean;
+        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
         updatedAt: Date;
     }>;
     updateProfile(userId: string, dto: UpdateUserDto): Promise<{
@@ -37,17 +39,19 @@ export declare class UsersService {
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            baseCurrency: string;
         };
         firstName: string;
         lastName: string;
         email: string;
         id: string;
-        createdAt: Date;
         role: import(".prisma/client").$Enums.Role;
         avatarUrl: string | null;
         organizationId: string | null;
         twoFactorSecret: string | null;
         twoFactorEnabled: boolean;
+        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
         updatedAt: Date;
     }>;
     changePassword(userId: string, dto: ChangePasswordDto): Promise<{
@@ -58,9 +62,12 @@ export declare class UsersService {
         lastName: string;
         email: string;
         id: string;
-        createdAt: Date;
         role: import(".prisma/client").$Enums.Role;
+        createdAt: Date;
     }[]>;
+    updateNotificationPreferences(userId: string, prefs: Record<string, boolean>): Promise<{
+        message: string;
+    }>;
     updateOrganizationProfile(orgId: string, data: {
         name?: string;
         industry?: string;
@@ -75,6 +82,7 @@ export declare class UsersService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        baseCurrency: string;
     }>;
     updateOrganizationPlan(orgId: string, plan: Plan): Promise<{
         name: string;
@@ -85,5 +93,6 @@ export declare class UsersService {
         id: string;
         createdAt: Date;
         updatedAt: Date;
+        baseCurrency: string;
     }>;
 }

@@ -13,14 +13,42 @@ exports.NotificationsService = void 0;
 const common_1 = require("@nestjs/common");
 const client_1 = require("@prisma/client");
 const prisma_service_1 = require("../prisma/prisma.service");
+const mail_service_1 = require("../mail/mail.service");
 let NotificationsService = class NotificationsService {
-    constructor(prisma) {
+    constructor(prisma, mail) {
         this.prisma = prisma;
+        this.mail = mail;
     }
-    async create(userId, title, message, type = client_1.NotificationType.INFO) {
-        return this.prisma.notification.create({
-            data: { userId, title, message, type },
+    async create(userId, title, message, type = client_1.NotificationType.INFO, opts) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: { firstName: true, email: true, notificationPreferences: true },
         });
+        const prefs = user?.notificationPreferences ?? {};
+        const isPaymentType = type === client_1.NotificationType.PAYMENT || type === client_1.NotificationType.SUCCESS;
+        const isAlertType = type === client_1.NotificationType.ALERT || type === client_1.NotificationType.WARNING;
+        const suppressInApp = (isPaymentType && prefs.inAppPayments === false) ||
+            (isAlertType && prefs.inAppAlerts === false);
+        let notification = null;
+        if (!suppressInApp) {
+            notification = await this.prisma.notification.create({
+                data: { userId, title, message, type },
+            });
+        }
+        if (!opts?.skipEmail && user) {
+            const shouldEmailPayment = isPaymentType && prefs.emailPayments !== false;
+            const shouldEmailAlert = isAlertType && prefs.emailAlerts !== false;
+            const shouldEmailSystem = !isPaymentType && !isAlertType && prefs.emailSystem !== false;
+            if (shouldEmailPayment || shouldEmailAlert || shouldEmailSystem) {
+                if (shouldEmailAlert) {
+                    this.mail.sendGatewayAlert(user.email, user.firstName, title, message).catch(() => { });
+                }
+                else {
+                    this.mail.sendPaymentNotification(user.email, user.firstName, { title, message }).catch(() => { });
+                }
+            }
+        }
+        return notification;
     }
     async findAllForUser(userId) {
         const [notifications, unreadCount] = await Promise.all([
@@ -52,6 +80,7 @@ let NotificationsService = class NotificationsService {
 exports.NotificationsService = NotificationsService;
 exports.NotificationsService = NotificationsService = __decorate([
     (0, common_1.Injectable)(),
-    __metadata("design:paramtypes", [prisma_service_1.PrismaService])
+    __metadata("design:paramtypes", [prisma_service_1.PrismaService,
+        mail_service_1.MailService])
 ], NotificationsService);
 //# sourceMappingURL=notifications.service.js.map

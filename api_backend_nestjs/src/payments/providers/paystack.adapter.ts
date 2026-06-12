@@ -4,6 +4,7 @@ import {
   GatewaySyncOptions,
   InitializedPayment,
   PaymentGatewayAdapter,
+  RefundResult,
   SyncedGatewayTransaction,
   VerifiedPayment,
 } from '../payment-gateway.types';
@@ -136,6 +137,24 @@ export class PaystackAdapter implements PaymentGatewayAdapter {
       metadata: item.metadata ?? {},
       raw: item,
     }));
+  }
+
+  async refundPayment(gateway: Gateway, transactionId: string, amount?: number): Promise<RefundResult> {
+    const body: Record<string, unknown> = { transaction: transactionId };
+    if (amount != null) body.amount = Math.round(Number(amount) * 100);
+
+    const data = await this.request<any>(gateway, '/refund', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+
+    return {
+      refundId: String(data.id ?? data.transaction ?? transactionId),
+      status: data.status ?? 'pending',
+      amount: data.amount != null ? Number(data.amount) / 100 : amount,
+      currency: data.currency ?? 'NGN',
+      raw: data,
+    };
   }
 
   async validateConfiguration(gateway: Gateway) {

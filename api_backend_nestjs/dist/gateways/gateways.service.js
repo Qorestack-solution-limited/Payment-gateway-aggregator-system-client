@@ -11,17 +11,20 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GatewaysService = void 0;
 const common_1 = require("@nestjs/common");
-const prisma_service_1 = require("../prisma/prisma.service");
+const audit_service_1 = require("../audit/audit.service");
 const client_1 = require("@prisma/client");
+const prisma_service_1 = require("../prisma/prisma.service");
+const client_2 = require("@prisma/client");
 const payment_gateway_registry_1 = require("../payments/payment-gateway.registry");
 const gateway_credentials_service_1 = require("../payments/gateway-credentials.service");
 const webhooks_service_1 = require("../webhooks/webhooks.service");
 let GatewaysService = class GatewaysService {
-    constructor(prisma, registry, credentials, webhooks) {
+    constructor(prisma, registry, credentials, webhooks, audit) {
         this.prisma = prisma;
         this.registry = registry;
         this.credentials = credentials;
         this.webhooks = webhooks;
+        this.audit = audit;
     }
     async assertOwnership(gatewayId, orgId) {
         const gw = await this.prisma.gateway.findUnique({ where: { id: gatewayId } });
@@ -126,14 +129,14 @@ let GatewaysService = class GatewaysService {
             let updated = 0;
             for (const item of providerTransactions) {
                 const statusMap = {
-                    success: client_1.TransactionStatus.SUCCESS,
-                    failed: client_1.TransactionStatus.FAILED,
-                    abandoned: client_1.TransactionStatus.FAILED,
-                    pending: client_1.TransactionStatus.PENDING,
-                    processing: client_1.TransactionStatus.PENDING,
-                    refunded: client_1.TransactionStatus.REFUNDED,
+                    success: client_2.TransactionStatus.SUCCESS,
+                    failed: client_2.TransactionStatus.FAILED,
+                    abandoned: client_2.TransactionStatus.FAILED,
+                    pending: client_2.TransactionStatus.PENDING,
+                    processing: client_2.TransactionStatus.PENDING,
+                    refunded: client_2.TransactionStatus.REFUNDED,
                 };
-                const normalizedStatus = statusMap[String(item.providerStatus ?? '').toLowerCase()] ?? client_1.TransactionStatus.PENDING;
+                const normalizedStatus = statusMap[String(item.providerStatus ?? '').toLowerCase()] ?? client_2.TransactionStatus.PENDING;
                 const existing = await this.prisma.transaction.findFirst({
                     where: {
                         organizationId: orgId,
@@ -257,16 +260,34 @@ let GatewaysService = class GatewaysService {
             .update({ where: { id }, data: this.credentials.prepareUpdateData(dto) })
             .then((gateway) => this.serializeGateway(gateway));
     }
-    async toggleStatus(id, orgId) {
+    async toggleStatus(id, orgId, actorId, actorEmail) {
         const gw = await this.assertOwnership(id, orgId);
-        const next = gw.status === client_1.GatewayStatus.ACTIVE ? client_1.GatewayStatus.INACTIVE : client_1.GatewayStatus.ACTIVE;
-        return this.prisma.gateway
+        const next = gw.status === client_2.GatewayStatus.ACTIVE ? client_2.GatewayStatus.INACTIVE : client_2.GatewayStatus.ACTIVE;
+        const updated = await this.prisma.gateway
             .update({ where: { id }, data: { status: next } })
             .then((gateway) => this.serializeGateway(gateway));
+        if (actorId && actorEmail) {
+            this.audit.log({
+                action: client_1.AuditAction.GATEWAY_TOGGLED,
+                actorId, actorEmail, organizationId: orgId,
+                resourceType: 'gateway', resourceId: id,
+                description: `Gateway "${gw.name}" toggled to ${next}`,
+                before: { status: gw.status }, after: { status: next },
+            }).catch(() => { });
+        }
+        return updated;
     }
-    async remove(id, orgId) {
-        await this.assertOwnership(id, orgId);
+    async remove(id, orgId, actorId, actorEmail) {
+        const gw = await this.assertOwnership(id, orgId);
         await this.prisma.gateway.delete({ where: { id } });
+        if (actorId && actorEmail) {
+            this.audit.log({
+                action: client_1.AuditAction.GATEWAY_DELETED,
+                actorId, actorEmail, organizationId: orgId,
+                resourceType: 'gateway', resourceId: id,
+                description: `Gateway "${gw.name}" deleted`,
+            }).catch(() => { });
+        }
         return { message: 'Gateway removed' };
     }
 };
@@ -276,6 +297,7 @@ exports.GatewaysService = GatewaysService = __decorate([
     __metadata("design:paramtypes", [prisma_service_1.PrismaService,
         payment_gateway_registry_1.PaymentGatewayRegistry,
         gateway_credentials_service_1.GatewayCredentialsService,
-        webhooks_service_1.WebhooksService])
+        webhooks_service_1.WebhooksService,
+        audit_service_1.AuditService])
 ], GatewaysService);
 //# sourceMappingURL=gateways.service.js.map

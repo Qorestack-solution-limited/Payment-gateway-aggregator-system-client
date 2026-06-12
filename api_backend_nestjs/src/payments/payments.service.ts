@@ -292,6 +292,142 @@ export class PaymentsService {
     };
   }
 
+  async handleStripeWebhook(signatureHeader: string | undefined, rawBody: string, payload: Record<string, any>) {
+    const { createHmac: hmac, timingSafeEqual } = await import('crypto');
+
+    const gateways = await this.prisma.gateway.findMany({
+      where: { provider: GatewayProvider.STRIPE, status: GatewayStatus.ACTIVE, webhookSecret: { not: null } },
+    });
+
+    let matchedGateway: (typeof gateways)[0] | undefined;
+    if (signatureHeader) {
+      for (const gw of gateways) {
+        const secret = this.credentials.decrypt(gw.webhookSecret);
+        if (!secret) continue;
+        const parts = signatureHeader.split(',').reduce<Record<string, string>>((acc, p) => {
+          const [k, v] = p.split('=');
+          if (k && v) acc[k] = v;
+          return acc;
+        }, {});
+        const t = parts['t'];
+        const v1 = parts['v1'];
+        if (!t || !v1) continue;
+        const expected = hmac('sha256', secret).update(`${t}.${rawBody}`).digest('hex');
+        try {
+          if (timingSafeEqual(Buffer.from(expected), Buffer.from(v1))) {
+            matchedGateway = gw;
+            break;
+          }
+        } catch { /* length mismatch = no match */ }
+      }
+    }
+
+    if (!matchedGateway) {
+      await this.logWebhookEvent({
+        provider: GatewayProvider.STRIPE,
+        event: payload?.type ?? 'unknown',
+        status: 'REJECTED',
+        signature: signatureHeader,
+        rawBody,
+        errorMessage: 'Invalid Stripe webhook signature',
+      });
+      throw new UnauthorizedException('Invalid Stripe webhook signature');
+    }
+
+    if (!payload?.type || !payload?.data?.object) {
+      return { received: true, ignored: true, reason: 'Unsupported event shape' };
+    }
+
+    const obj = payload.data.object;
+    const reference = obj.metadata?.reference ?? obj.client_reference_id ?? obj.id;
+    const normalizedStatus = this.normalizeStatus(obj.payment_status ?? obj.status ?? payload.type);
+
+    const transaction = await this.upsertProviderTransaction({
+      gatewayId: matchedGateway.id,
+      organizationId: matchedGateway.organizationId,
+      reference: String(reference),
+      providerReference: obj.id,
+      providerTransactionId: typeof obj.payment_intent === 'string' ? obj.payment_intent : obj.payment_intent?.id,
+      providerStatus: obj.payment_status ?? obj.status ?? payload.type,
+      amount: obj.amount_total != null ? Number(obj.amount_total) / 100 : undefined,
+      currency: String(obj.currency ?? 'usd').toUpperCase(),
+      customerName: obj.metadata?.customerName ?? obj.customer_details?.name ?? 'Customer',
+      customerEmail: obj.customer_details?.email ?? obj.customer_email ?? '',
+      raw: obj,
+      normalizedStatus,
+    });
+
+    await this.webhooks.dispatchEvent(matchedGateway.organizationId, `payment.${normalizedStatus.toLowerCase()}`, {
+      source: 'stripe-webhook', event: payload.type, transaction,
+    });
+
+    await this.logWebhookEvent({
+      provider: GatewayProvider.STRIPE, event: payload.type, status: 'PROCESSED',
+      signature: signatureHeader, reference: String(reference), rawBody, payload: obj,
+      gatewayId: matchedGateway.id, organizationId: matchedGateway.organizationId, transactionId: transaction.id,
+    });
+
+    return { received: true, gatewayId: matchedGateway.id, transactionId: transaction.id, event: payload.type };
+  }
+
+  async handlePayPalWebhook(webhookSecret: string | undefined, rawBody: string, payload: Record<string, any>) {
+    const gateways = await this.prisma.gateway.findMany({
+      where: { provider: GatewayProvider.PAYPAL, status: GatewayStatus.ACTIVE, webhookSecret: { not: null } },
+    });
+
+    const matchedGateway = gateways.find((gw) => this.credentials.decrypt(gw.webhookSecret) === webhookSecret);
+
+    if (!matchedGateway) {
+      await this.logWebhookEvent({
+        provider: GatewayProvider.PAYPAL, event: payload?.event_type ?? 'unknown', status: 'REJECTED',
+        rawBody, errorMessage: 'Invalid PayPal webhook secret',
+      });
+      throw new UnauthorizedException('Invalid PayPal webhook secret');
+    }
+
+    const eventType = payload?.event_type ?? 'UNKNOWN';
+    const resource = payload?.resource ?? {};
+    const reference = resource.custom_id ?? resource.invoice_id ?? resource.id ?? '';
+    const statusMap: Record<string, string> = {
+      'PAYMENT.CAPTURE.COMPLETED': 'success',
+      'PAYMENT.CAPTURE.DENIED': 'failed',
+      'PAYMENT.CAPTURE.PENDING': 'pending',
+      'PAYMENT.CAPTURE.REFUNDED': 'refunded',
+      'CHECKOUT.ORDER.APPROVED': 'pending',
+      'CHECKOUT.ORDER.COMPLETED': 'success',
+    };
+    const normalizedStatus = this.normalizeStatus(statusMap[eventType] ?? resource.status ?? eventType);
+
+    const transaction = await this.upsertProviderTransaction({
+      gatewayId: matchedGateway.id,
+      organizationId: matchedGateway.organizationId,
+      reference: String(reference || resource.id),
+      providerReference: resource.id,
+      providerTransactionId: resource.id,
+      providerStatus: resource.status ?? eventType,
+      amount: resource.amount?.value ? Number(resource.amount.value) : undefined,
+      currency: resource.amount?.currency_code ?? 'USD',
+      customerName: resource.payer?.name?.given_name
+        ? `${resource.payer.name.given_name} ${resource.payer.name.surname}`.trim()
+        : 'Customer',
+      customerEmail: resource.payer?.email_address ?? '',
+      raw: resource,
+      normalizedStatus,
+    });
+
+    await this.webhooks.dispatchEvent(matchedGateway.organizationId, `payment.${normalizedStatus.toLowerCase()}`, {
+      source: 'paypal-webhook', event: eventType, transaction,
+    });
+
+    await this.logWebhookEvent({
+      provider: GatewayProvider.PAYPAL, event: eventType, status: 'PROCESSED',
+      signature: webhookSecret, reference: String(reference), rawBody, payload: resource,
+      gatewayId: matchedGateway.id, organizationId: matchedGateway.organizationId, transactionId: transaction.id,
+    });
+
+    return { received: true, gatewayId: matchedGateway.id, transactionId: transaction.id, event: eventType };
+  }
+
   async handleFlutterwaveWebhook(signature: string | undefined, rawBody: string, payload: FlutterwaveWebhookPayload) {
     const gateways = await this.prisma.gateway.findMany({
       where: {

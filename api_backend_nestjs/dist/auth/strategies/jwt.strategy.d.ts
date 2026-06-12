@@ -18,17 +18,19 @@ export declare class JwtStrategy extends JwtStrategy_base {
             id: string;
             createdAt: Date;
             updatedAt: Date;
+            baseCurrency: string;
         };
         firstName: string;
         lastName: string;
         email: string;
         id: string;
-        createdAt: Date;
         role: import(".prisma/client").$Enums.Role;
         avatarUrl: string | null;
         organizationId: string | null;
         twoFactorSecret: string | null;
         twoFactorEnabled: boolean;
+        notificationPreferences: import("@prisma/client/runtime/library").JsonValue | null;
+        createdAt: Date;
         updatedAt: Date;
     }>;
 }

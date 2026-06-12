@@ -39,6 +39,9 @@ let UsersController = class UsersController {
     updateOrganization(orgId, plan) {
         return this.users.updateOrganizationPlan(orgId, plan);
     }
+    updateNotifPrefs(userId, prefs) {
+        return this.users.updateNotificationPreferences(userId, prefs);
+    }
     updateOrgProfile(orgId, dto) {
         return this.users.updateOrganizationProfile(orgId, dto);
     }
@@ -87,6 +90,15 @@ __decorate([
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", void 0)
 ], UsersController.prototype, "updateOrganization", null);
+__decorate([
+    (0, common_1.Patch)('me/notification-preferences'),
+    (0, swagger_1.ApiOperation)({ summary: 'Save notification preferences' }),
+    __param(0, (0, get_user_decorator_1.GetUser)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", void 0)
+], UsersController.prototype, "updateNotifPrefs", null);
 __decorate([
     (0, common_1.Patch)('me/organization/profile'),
     (0, swagger_1.ApiOperation)({ summary: 'Update organization profile (name, industry, website, size)' }),

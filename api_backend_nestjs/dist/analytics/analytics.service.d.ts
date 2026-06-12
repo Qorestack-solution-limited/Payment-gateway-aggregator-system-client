@@ -1,10 +1,14 @@
 import { PrismaService } from '../prisma/prisma.service';
+import { ExchangeRatesService } from '../exchange-rates/exchange-rates.service';
 export declare class AnalyticsService {
     private prisma;
-    constructor(prisma: PrismaService);
+    private fx;
+    constructor(prisma: PrismaService, fx: ExchangeRatesService);
+    private getBaseCurrency;
+    private normalizeRevenue;
     getSummary(orgId: string, days?: number): Promise<{
         revenue: {
-            value: any;
+            value: number;
             change: number;
         };
         transactions: {
@@ -23,6 +27,7 @@ export declare class AnalyticsService {
     getRevenueChart(orgId: string, days?: number): Promise<{
         date: string;
         revenue: number;
+        currency: string;
     }[]>;
     getGatewayBreakdown(orgId: string, days?: number): Promise<{
         name: string;

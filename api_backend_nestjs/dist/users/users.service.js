@@ -65,6 +65,13 @@ let UsersService = class UsersService {
             orderBy: { createdAt: 'asc' },
         });
     }
+    async updateNotificationPreferences(userId, prefs) {
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { notificationPreferences: prefs },
+        });
+        return { message: 'Notification preferences saved' };
+    }
     async updateOrganizationProfile(orgId, data) {
         if (!orgId)
             throw new common_1.ForbiddenException('No organization associated with this account');

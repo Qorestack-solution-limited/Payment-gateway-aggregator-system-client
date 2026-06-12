@@ -110,6 +110,22 @@ let PaystackAdapter = class PaystackAdapter {
             raw: item,
         }));
     }
+    async refundPayment(gateway, transactionId, amount) {
+        const body = { transaction: transactionId };
+        if (amount != null)
+            body.amount = Math.round(Number(amount) * 100);
+        const data = await this.request(gateway, '/refund', {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
+        return {
+            refundId: String(data.id ?? data.transaction ?? transactionId),
+            status: data.status ?? 'pending',
+            amount: data.amount != null ? Number(data.amount) / 100 : amount,
+            currency: data.currency ?? 'NGN',
+            raw: data,
+        };
+    }
     async validateConfiguration(gateway) {
         await this.request(gateway, '/transaction?perPage=1', { method: 'GET' });
         return { ok: true, message: 'Paystack configuration is valid' };
