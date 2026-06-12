@@ -18,35 +18,35 @@ export declare class GatewaysService {
     getWebhookEvents(id: string, orgId: string): Promise<({
         transaction: {
             id: string;
+            status: import(".prisma/client").$Enums.TransactionStatus;
             reference: string;
             amount: import("@prisma/client/runtime/library").Decimal;
             currency: string;
-            status: import(".prisma/client").$Enums.TransactionStatus;
         };
     } & {
         event: string;
         id: string;
         organizationId: string | null;
-        reference: string | null;
-        status: string;
-        gatewayId: string | null;
         provider: import(".prisma/client").$Enums.GatewayProvider;
-        transactionId: string | null;
+        status: string;
+        reference: string | null;
         signature: string | null;
         payload: import("@prisma/client/runtime/library").JsonValue | null;
         rawBody: string | null;
         errorMessage: string | null;
+        gatewayId: string | null;
+        transactionId: string | null;
         receivedAt: Date;
     })[]>;
     getSyncRuns(id: string, orgId: string): Promise<{
         id: string;
         organizationId: string;
+        message: string | null;
         status: string;
         gatewayId: string;
         imported: number;
         updated: number;
         totalFetched: number;
-        message: string | null;
         fromDate: string | null;
         toDate: string | null;
         startedAt: Date;

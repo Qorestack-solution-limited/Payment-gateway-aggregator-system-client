@@ -10,6 +10,10 @@ async function bootstrap() {
     rawBody: true,
   });
 
+  app.use('/health', (_req, res) => {
+    res.status(200).send('ok');
+  });
+
   app.setGlobalPrefix('api/v1');
 
   app.enableCors({

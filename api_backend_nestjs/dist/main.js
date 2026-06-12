@@ -10,6 +10,9 @@ async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule, {
         rawBody: true,
     });
+    app.use('/health', (_req, res) => {
+        res.status(200).send('ok');
+    });
     app.setGlobalPrefix('api/v1');
     app.enableCors({
         origin: process.env.CLIENT_URL || 'http://localhost:5173',

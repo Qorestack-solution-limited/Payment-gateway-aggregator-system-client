@@ -18,44 +18,44 @@ export declare class WebhooksService {
             nextRetryAt: Date | null;
         }[];
     } & {
-        id: string;
         url: string;
-        events: string[];
-        isActive: boolean;
-        secret: string;
+        id: string;
         organizationId: string;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
+        secret: string;
+        events: string[];
     })[]>;
     findOne(id: string, orgId: string): Promise<{
-        id: string;
         url: string;
-        events: string[];
-        isActive: boolean;
-        secret: string;
+        id: string;
         organizationId: string;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
+        secret: string;
+        events: string[];
     }>;
     create(orgId: string, dto: CreateWebhookDto): import(".prisma/client").Prisma.Prisma__WebhookClient<{
-        id: string;
         url: string;
-        events: string[];
-        isActive: boolean;
-        secret: string;
+        id: string;
         organizationId: string;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
+        secret: string;
+        events: string[];
     }, never, import("@prisma/client/runtime/library").DefaultArgs>;
     update(id: string, orgId: string, dto: UpdateWebhookDto): Promise<{
-        id: string;
         url: string;
-        events: string[];
-        isActive: boolean;
-        secret: string;
+        id: string;
         organizationId: string;
         createdAt: Date;
         updatedAt: Date;
+        isActive: boolean;
+        secret: string;
+        events: string[];
     }>;
     remove(id: string, orgId: string): Promise<{
         message: string;
